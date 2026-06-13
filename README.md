@@ -80,6 +80,9 @@ python3 src/seed_demo_index.py
 # 3. THE DIFFERENTIATOR — 3-layer gate on real security data, no API key needed
 python3 src/agent.py --demo
 
+# 3b. universal hunt — run the behavioural detection pack across the kill chain
+python3 src/agent.py --hunt
+
 # 4. full agentic loop (Claude drives it) — add a key any of 4 ways, then:
 echo 'ANTHROPIC_API_KEY=sk-ant-...' >> .env      # or env var / API_KEY.txt / hidden prompt
 python3 src/agent.py "Investigate suspicious authentication and outbound activity in index=soc_demo over the last 24h."
@@ -101,6 +104,32 @@ The invented beacon can't reach "confirmed" — its `dest_ip` never appears in a
 That gate is what stops AI hallucinations reaching the report.
 
 ---
+
+## Universal detection library
+
+`src/detections.py` ships **12 behavioural detectors** spanning the ATT&CK kill
+chain. Each finds *structure or behaviour* — never a hardcoded IP/host/hash — so it
+survives a held-out environment (`tests/test_detections.py` enforces the no-answer-keys
+rule):
+
+| Tactic | Technique | Detector |
+|---|---|---|
+| Credential Access | T1110 | auth-failure burst from one source |
+| Initial Access | T1190 | SQLi / path-traversal in web requests |
+| Execution | T1059.001 | encoded / obfuscated PowerShell |
+| Execution | T1059 | Office app spawning a shell |
+| Persistence | T1543.003 | service launched from a temp / user-writable path |
+| Privilege Escalation | T1078 | SeDebug / SeTcb / SeLoadDriver assigned |
+| Defense Evasion | T1070.001 | security / audit log cleared |
+| Lateral Movement | T1021 | one account into many hosts |
+| Command & Control | T1071 | low-jitter periodic beacon |
+| Exfiltration | T1567 | egress-volume outlier |
+| Exfiltration | T1530 | cloud object store made public |
+| Credential Access | T1110.004 | cloud console login failures |
+
+`python3 src/agent.py --hunt` runs the whole pack through the MCP server and
+validates each hit; corroboration across independent sourcetypes is what elevates
+the real attacker to HIGH and leaves single-source noise at LOW.
 
 ## Layout
 
