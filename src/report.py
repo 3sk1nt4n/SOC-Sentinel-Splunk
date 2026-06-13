@@ -58,6 +58,20 @@ REMEDIATIONS = {
 
 _SEV = {"HIGH": ("🔴", "act now"), "MEDIUM": ("🟠", "investigate"), "LOW": ("🟡", "review")}
 
+# Risk score = confidence base + corroboration + tactic impact (capped 100).
+# Keeps tiers ordered (HIGH > MED > LOW) while ranking within a tier by how many
+# independent sources agree and how damaging the tactic is.
+_CONF_BASE = {"HIGH": 70, "MEDIUM": 45, "LOW": 20}
+_IMPACT = {"Exfiltration": 6, "Impact": 6, "Command and Control": 5, "Credential Access": 5,
+           "Lateral Movement": 4, "Privilege Escalation": 4, "Persistence": 3,
+           "Defense Evasion": 3, "Execution": 2, "Initial Access": 2}
+
+
+def _risk_score(r) -> int:
+    base = _CONF_BASE.get(r.get("confidence"), 10)
+    corr = 5 * min(len(r.get("sources", [])), 5)
+    return min(100, base + corr + _IMPACT.get(r.get("tactic"), 1))
+
 
 def _confirmed(results):
     return [r for r in results if r.get("disposition") == "confirmed"]
@@ -71,9 +85,9 @@ def _spl(det_id, index="soc_demo"):
 
 
 def _ordered(confirmed):
+    """Highest risk first; kill-chain order breaks ties within the same score."""
     rank = {t: i for i, t in enumerate(_TACTIC_ORDER)}
-    conf_rank = {"HIGH": 0, "MEDIUM": 1, "LOW": 2}
-    return sorted(confirmed, key=lambda r: (rank.get(r["tactic"], 99), conf_rank.get(r["confidence"], 9)))
+    return sorted(confirmed, key=lambda r: (-_risk_score(r), rank.get(r["tactic"], 99)))
 
 
 def build_markdown(results, index="soc_demo") -> str:
@@ -97,6 +111,11 @@ def build_markdown(results, index="soc_demo") -> str:
         L.append(f"**Assessment:** the evidence describes a multi-stage intrusion — "
                  f"{' → '.join(tactics)}. Treat as an active incident.")
         L.append("")
+        top = c[0]
+        L.append(f"**Highest risk:** {top['title']} — {top['technique']} "
+                 f"(risk {_risk_score(top)}/100, {top['confidence']} confidence). "
+                 "Findings below are ranked by risk = confidence × corroboration × tactic impact.")
+        L.append("")
 
     L.append("## MITRE ATT&CK coverage")
     L.append("")
@@ -107,13 +126,13 @@ def build_markdown(results, index="soc_demo") -> str:
         L.append(f"| {t} | {', '.join(techs)} |")
     L.append("")
 
-    L.append("## Confirmed findings")
+    L.append("## Confirmed findings — ranked by risk (highest first)")
     L.append("")
-    L.append("| Sev | Confidence | Technique | Finding | Entity | Corroboration |")
-    L.append("|---|---|---|---|---|---|")
+    L.append("| Risk | Sev | Confidence | Technique | Finding | Entity | Corroboration |")
+    L.append("|---:|---|---|---|---|---|---|")
     for r in c:
         sev = _SEV.get(r["confidence"], ("", ""))[0]
-        L.append(f"| {sev} | {r['confidence']} | {r['technique']} | {r['title']} | "
+        L.append(f"| {_risk_score(r)} | {sev} | {r['confidence']} | {r['technique']} | {r['title']} | "
                  f"`{r['entity']}={r['value']}` | {len(r.get('sources', []))} source(s) |")
     L.append("")
 
@@ -176,6 +195,11 @@ def build_html(results, index="soc_demo") -> str:
     if tactics:
         h.append(f"<p><b>Assessment:</b> multi-stage intrusion — {' &rarr; '.join(e(t) for t in tactics)}. "
                  "Treat as an active incident.</p>")
+    if c:
+        top = c[0]
+        h.append(f"<p><b>Highest risk:</b> {e(top['title'])} — {e(top['technique'])} "
+                 f"(risk {_risk_score(top)}/100, {e(top['confidence'])}). Findings are ranked by "
+                 "risk = confidence × corroboration × tactic impact.</p>")
     h.append("</div>")
 
     h.append("<h2>MITRE ATT&CK coverage</h2><table><tr><th>Tactic</th><th>Techniques confirmed</th></tr>")
@@ -184,10 +208,11 @@ def build_html(results, index="soc_demo") -> str:
         h.append(f"<tr><td>{e(t)}</td><td>{''.join(f'<span class=mtag>{e(x)}</span>' for x in techs)}</td></tr>")
     h.append("</table>")
 
-    h.append("<h2>Confirmed findings</h2><table>"
-             "<tr><th>Confidence</th><th>Technique</th><th>Finding</th><th>Entity</th><th>Corroboration</th></tr>")
+    h.append("<h2>Confirmed findings <span style='font-weight:400;font-size:15px;color:#5a6b7a'>(ranked by risk, highest first)</span></h2><table>"
+             "<tr><th>Risk</th><th>Confidence</th><th>Technique</th><th>Finding</th><th>Entity</th><th>Corroboration</th></tr>")
     for r in c:
-        h.append(f"<tr><td><span class='chip {e(r['confidence'])}'>{e(r['confidence'])}</span></td>"
+        rs = _risk_score(r)
+        h.append(f"<tr><td><b>{rs}</b></td><td><span class='chip {e(r['confidence'])}'>{e(r['confidence'])}</span></td>"
                  f"<td>{e(r['technique'])}</td><td>{e(r['title'])}</td>"
                  f"<td><code>{e(r['entity'])}={e(str(r['value']))}</code></td>"
                  f"<td>{len(r.get('sources', []))} source(s)</td></tr>")
