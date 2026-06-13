@@ -1,0 +1,47 @@
+digraph SOC_Sentinel {
+  rankdir=TB;
+  bgcolor="white";
+  labelloc="t";
+  fontname="Helvetica-Bold";
+  fontsize=18;
+  label="SOC Sentinel — agentic SOC analyst you can trust\nClaude investigates Splunk via the Splunk MCP Server; code (not the model) decides what is confirmed";
+
+  node [fontname="Helvetica", fontsize=12, shape=box, style="filled,rounded", margin="0.18,0.10"];
+  edge [fontname="Helvetica", fontsize=10, color="#444444"];
+
+  analyst [label="SOC Analyst\n(asks in plain English:\n\"Was my environment attacked?\")",
+           fillcolor="#eef1f4", color="#999999"];
+
+  subgraph cluster_agent {
+    label="SOC Sentinel  —  AI agent (Python)";
+    fontname="Helvetica-Bold"; fontsize=13; color="#2b6cb0"; style="rounded";
+    bgcolor="#eaf1fb";
+
+    orchestrator [label="Orchestrator  (Claude / Anthropic)\nreasons, picks which SPL searches to run,\ndrafts findings with explicit claims",
+                  fillcolor="#2b6cb0", fontcolor="white", color="#1a4971"];
+    validator [label="3-Layer Validator  —  THE GATE\nL1 trace: every claim -> a real Splunk row\nL2 corroborate: independent sourcetypes\nL3 calibrate: 3+=HIGH 2=MED 1=LOW",
+               fillcolor="#1a4971", fontcolor="white", color="#0e2c45"];
+    report [label="Report\nconfirmed / needs-review,\nevery claim linked to the search that proves it",
+            fillcolor="#3a7bd5", fontcolor="white", color="#1a4971"];
+  }
+
+  mcp [label="Splunk MCP Server\n(Splunk AI capability — typed tools,\nno shell: splunk_run_query, ...)",
+       fillcolor="#65A637", fontcolor="white", color="#3a6b1f"];
+  splunk [label="Splunk Enterprise\nindexes - SPL - result rows",
+          fillcolor="#65A637", fontcolor="white", color="#3a6b1f"];
+
+  analyst -> orchestrator [label="  natural-language ask"];
+  orchestrator -> mcp [label="  MCP tool calls\n  (run_query, get_indexes...)"];
+  mcp -> splunk [label="  SPL search"];
+  splunk -> mcp [label="  result rows"];
+  mcp -> orchestrator [label="  evidence (rows)"];
+  orchestrator -> validator [label="  draft findings + claims"];
+  validator -> orchestrator [label="  unsupported claim -> BLOCKED",
+                             color="#c0392b", fontcolor="#c0392b", style=dashed];
+  validator -> report [label="  every claim traces ✓",
+                       color="#1f8b3a", fontcolor="#1f8b3a", penwidth=2];
+  report -> analyst [label="  trustworthy report"];
+
+  legend [shape=note, fillcolor="#fffbe6", color="#caa300", fontsize=10,
+          label="Blue = AI (Claude)        Green = Splunk\nTrust boundary: the Validator. A claim the\nmodel asserts but the data can't support\nnever reaches the analyst. Read-only (search\nonly; no destructive ops)."];
+}
