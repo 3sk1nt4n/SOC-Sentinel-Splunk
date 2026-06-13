@@ -30,7 +30,8 @@ from finding_validator import validate_finding  # noqa: E402
 from splunk_mcp import SplunkMCP, SplunkMCPError  # noqa: E402
 
 ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
-DEFAULT_MODEL = os.environ.get("SOC_MODEL", "claude-sonnet-4-6")
+# Locked to Haiku for cost control (operator directive). SOC_MODEL can override.
+DEFAULT_MODEL = os.environ.get("SOC_MODEL", "claude-haiku-4-5-20251001")
 
 SYSTEM_PROMPT = """You are SOC Sentinel, an autonomous security analyst working \
 inside Splunk. Investigate the analyst's question using ONLY the Splunk tools \
@@ -67,10 +68,11 @@ def _api_key() -> str:
 
 
 def _anthropic(messages, tools, *, model, max_tokens=2048):
-    body = json.dumps({
-        "model": model, "max_tokens": max_tokens,
-        "system": SYSTEM_PROMPT, "messages": messages, "tools": tools,
-    }).encode()
+    payload = {"model": model, "max_tokens": max_tokens,
+               "system": SYSTEM_PROMPT, "messages": messages}
+    if tools:  # omit when empty so the model is forced to answer in text (finalization)
+        payload["tools"] = tools
+    body = json.dumps(payload).encode()
     req = urllib.request.Request(ANTHROPIC_URL, data=body, method="POST")
     req.add_header("x-api-key", _api_key())
     req.add_header("anthropic-version", "2023-06-01")
@@ -121,10 +123,11 @@ def _extract_findings(text: str) -> list[dict]:
 # The agentic investigation
 # --------------------------------------------------------------------------
 def run_investigation(question: str, *, model: str = DEFAULT_MODEL,
-                      max_steps: int = 10, verbose: bool = True) -> dict:
+                      max_steps: int = 12, verbose: bool = True) -> dict:
     mcp = SplunkMCP()
     mcp.initialize()
     tools = tool_specs_from_mcp(mcp)
+    print(f"🤖 SOC Sentinel agent — model: {model} · {len(tools)} Splunk MCP tools available")
 
     messages = [{"role": "user", "content": question}]
     evidence_rows: list[dict] = []     # union of every result row Splunk returned
@@ -169,6 +172,20 @@ def run_investigation(question: str, *, model: str = DEFAULT_MODEL,
             tool_results.append({"type": "tool_result",
                                  "tool_use_id": tu["id"], "content": payload})
         messages.append({"role": "user", "content": tool_results})
+
+    # If the investigation consumed all its steps before emitting findings, force a
+    # final findings-only turn (no tools) so the validator always has something to gate.
+    if not _extract_findings(final_text):
+        messages.append({"role": "user", "content":
+            "Stop investigating now. Using ONLY the evidence already gathered, output the "
+            "findings JSON block exactly as specified in your instructions — a single ```json "
+            "fenced block and nothing else."})
+        resp = _anthropic(messages, [], model=model, max_tokens=2048)
+        for b in resp.get("content", []):
+            if b.get("type") == "text" and b.get("text", "").strip():
+                final_text = b["text"]
+        if verbose:
+            print(f"\n🧠 [finalize] {final_text[:500]}")
 
     findings = _extract_findings(final_text)
     validated = [validate_finding(f, evidence_rows) for f in findings]
