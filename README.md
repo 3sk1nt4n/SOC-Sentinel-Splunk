@@ -1,52 +1,126 @@
 # 🛡️ SOC Sentinel — the hallucination-proof investigation agent for Splunk
 
-**Track: Security** · Splunk Agentic Ops Hackathon 2026
+**Track: Security** · Splunk Agentic Ops Hackathon 2026 · uses the **Splunk MCP Server** at runtime
 
-> AI agents over SIEM data confidently **hallucinate** — they narrate a plausible
-> incident that the data doesn't support. SOC Sentinel makes that impossible to ship:
-> **code, not the model, decides what's "confirmed,"** and **every finding traces back
-> to the exact Splunk search result that proves it.**
+> An autonomous SOC analyst that investigates your Splunk data with Claude — but
+> where **code, not the model, decides what's "confirmed."** Every finding traces
+> back to the exact Splunk search result that proves it; anything the AI can't
+> prove is **blocked before it ever reaches the report.**
 
-## What it does
-An autonomous SOC investigation agent. It reasons over your Splunk data with Claude,
-runs SPL searches through the **Splunk MCP Server**, drafts findings, and then runs a
-**deterministic validator**: any claim a finding makes that isn't present in the actual
-Splunk result rows is flagged **UNSUPPORTED** and never reported as confirmed. The
-output is an analyst-ready report where every claim is checkable in seconds.
+![SOC Sentinel architecture](docs/architecture.png)
 
-It's a port of a battle-tested DFIR agent's anti-hallucination core (deterministic
-validator + audit trail) onto Splunk data.
+---
 
-## How AI is used
-- **Reasoning:** Claude (Anthropic) drives the loop — hypothesis → which SPL to run → read results → propose findings.
-- **Splunk AI capability:** the **Splunk MCP Server** is the runtime bridge between the agent and Splunk data.
-- **The guardrail:** a deterministic validator (`src/finding_validator.py`) gates every finding against the real search rows.
+## The problem
 
-See [`architecture_diagram.md`](architecture_diagram.md).
+Point an LLM at your SIEM and ask *"was I breached?"* and it will happily **invent**
+an attacker IP, a hostname, a "confirmed" lateral-movement chain — none of it in your
+data. In security that isn't a quirk, it's a dealbreaker: **a confident wrong answer is
+more dangerous than no answer** — wasted incident-response hours, wrong escalations,
+real threats missed while chasing a fabricated one. It is the single biggest reason
+agentic SOC tooling isn't trusted in production.
 
-## Setup
-**Prerequisites:** Splunk Enterprise (free trial + Developer License) running locally, and the **Splunk MCP Server** pointed at it.
+## What it solves
 
-1. **Splunk:** install Splunk Enterprise, start it (`/opt/splunk/bin/splunk start`), apply a Developer License. Mgmt API at `https://localhost:8089`.
-2. **Splunk MCP Server:** install from the hackathon Resources page; point it at `https://localhost:8089`.
-3. **Config:** `cp .env.example .env` and fill in your Splunk host/user/password + the MCP Server endpoint.
-4. **Python deps:** standard library only for the Splunk client + validator (no pip needed); the agent loop uses the `anthropic` SDK (`pip install anthropic`) and your `ANTHROPIC_API_KEY`.
+| Issue with naïve "AI over SIEM" | How SOC Sentinel addresses it |
+|---|---|
+| **Hallucinated facts** — invented IPs, hosts, "confirmed" breaches | **Layer 1 trace gate** — every claim must match a real Splunk result row or it's blocked. Code decides, not the model. |
+| **No provenance** — you can't verify what the AI claims | every confirmed finding links to the exact **SPL + rows** that prove it — re-runnable in seconds |
+| **Mis-calibrated confidence** | **Layer 3 calibration** — confidence from *independent-source corroboration* (3+ sourcetypes = HIGH), not the model's gut feel |
+| **Unsafe access / prompt injection** | the agent never builds raw queries or shell — only **typed MCP tools, read-only search** |
+| **Alert fatigue** | verifiable triage ranked by corroboration, so analysts see what's *real* first |
+| **Trust gap blocks adoption** | the report contains nothing unverifiable — safe to hand straight to a SOC |
 
-## Run
+---
+
+## How it works (the 3-layer trust pipeline)
+
+The anti-hallucination core is ported from a battle-tested DFIR agent and reimplemented
+for Splunk. Every candidate finding the AI proposes runs through three deterministic layers:
+
+1. **Layer 1 — Trace gate.** Each claim (`field = value`) must appear in a real Splunk
+   result row, or it is `UNSUPPORTED` and blocked. *Code checks the AI.*
+2. **Layer 2 — Corroboration.** Count the **independent sourcetypes** that back the
+   finding (the Splunk analog of memory + disk + logs cross-checking).
+3. **Layer 3 — Calibration.** Evidence-based confidence: **3+ independent sources = HIGH,
+   2 = MEDIUM, 1 = LOW.**
+
+Disposition: `confirmed` (all claims trace) · `needs_review` (some) · `rejected` (none) ·
+`inconclusive` (no claims). Confidence is only ever assigned to confirmed findings.
+
+## How AI + Splunk are used (at runtime)
+
+- **Reasoning:** **Claude (Anthropic)** drives the investigation loop — forms a hypothesis,
+  picks which SPL to run, reads results, proposes findings with explicit claims.
+- **Splunk AI capability:** the **Splunk MCP Server** (Splunkbase app 7931, Splunk-supported)
+  is the runtime bridge — the agent issues `splunk_run_query` and the other typed MCP tools
+  over JSON-RPC at `POST /services/mcp`; it never touches Splunk directly.
+- **The guardrail:** the 3-layer validator (`src/finding_validator.py`) gates every finding
+  against the real rows.
+
+See [`architecture_diagram.md`](architecture_diagram.md) for the full data flow.
+
+---
+
+## Quickstart
+
+**Prerequisites:** Splunk Enterprise running locally (mgmt API at `https://localhost:8089`)
+with the **Splunk MCP Server** app installed, and Python 3 (the client/validator are
+**stdlib-only** — no pip needed; the agent loop calls the Anthropic API over stdlib too).
+
 ```bash
-# 1. sanity: query Splunk directly (proves connectivity)
-python3 src/splunk_client.py 'index=_internal | head 5'
+cp .env.example .env          # set SPLUNK_HOST / SPLUNK_USER / SPLUNK_PASSWORD
 
-# 2. validate a finding against live Splunk results (the differentiator)
-python3 -c "import sys;sys.path.insert(0,'src');from splunk_client import run_spl;from finding_validator import validate_finding;\
-r=run_spl('index=_internal | head 20');print(validate_finding({'id':'F1','title':'demo','claims':[{'field':'host','value':r[0]['host']}]}, r)['disposition'])"
+# 1. prove the MCP integration (lists the 10 tools, runs a real search)
+python3 src/splunk_mcp.py
+
+# 2. seed a reproducible breach into Splunk (index=soc_demo) — no BOTS download
+python3 src/seed_demo_index.py
+
+# 3. THE DIFFERENTIATOR — 3-layer gate on real security data, no API key needed
+python3 src/agent.py --demo
+
+# 4. full agentic loop (Claude drives it) — add a key any of 4 ways, then:
+echo 'ANTHROPIC_API_KEY=sk-ant-...' >> .env      # or env var / API_KEY.txt / hidden prompt
+python3 src/agent.py "Investigate suspicious authentication and outbound activity in index=soc_demo over the last 24h."
 ```
-*(The full agent loop — Claude orchestration over the MCP Server — is `src/soc_sentinel.py`; see the demo video.)*
 
-## Why it matters
-For a SOC, a confident wrong answer is worse than no answer. SOC Sentinel's validator
-turns the agent from a plausible-story generator into one whose every "confirmed"
-finding is backed by a Splunk result an analyst can re-run.
+### What step 3 prints (live, deterministic, no LLM)
+
+```
+✅ CONFIRMED  [MEDIUM]  External 203.0.113.66 ran a brute-force + web attack
+     L1 trace gate:    1/1 claims trace to real Splunk rows
+     L2 corroboration: 2 independent source(s): access_combined, linux_secure
+     L3 calibration:   confidence=MEDIUM  (3+ sources=HIGH, 2=MEDIUM, 1=LOW)
+
+🚫 REJECTED  [NONE]  C2 beacon to 8.8.8.8 (model-invented)
+     L1 trace gate:    0/1 claims trace to real Splunk rows
+```
+
+The invented beacon can't reach "confirmed" — its `dest_ip` never appears in a Splunk row.
+That gate is what stops AI hallucinations reaching the report.
+
+---
+
+## Layout
+
+| File | Purpose |
+|---|---|
+| `src/splunk_mcp.py` | Splunk MCP Server client — token mint + JSON-RPC (`initialize`/`tools/list`/`tools/call`) |
+| `src/agent.py` | the agentic loop (Claude over MCP) + the deterministic gate demo |
+| `src/finding_validator.py` | the 3-layer trust pipeline — **the differentiator** |
+| `src/seed_demo_index.py` | reproducible SOC dataset (a full intrusion to hunt) |
+| `src/api_key.py` | "can't-get-stuck" key entry: env → .env → `API_KEY.txt` → hidden prompt |
+| `tests/test_validator.py` | unit tests for the 3 layers |
+| `docs/architecture.png` | the architecture diagram (above) |
+
+## Compliance (anti-disqualification)
+
+- ✅ **Splunk AI used at runtime** — the agent calls the Splunk MCP Server live (not mocked / not planned)
+- ✅ **Architecture diagram** — `docs/architecture.png`
+- ✅ **New project** — all commits during the hackathon period
+- ✅ **OSI license** — MIT ([LICENSE](LICENSE))
+- ✅ **Public repo** — see About
 
 ## License
 MIT — see [LICENSE](LICENSE).

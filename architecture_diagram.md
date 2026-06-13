@@ -4,13 +4,17 @@
 
 > The thesis: AI agents over SIEM data **confidently hallucinate**. SOC Sentinel makes that impossible to ship — **code, not the model, decides what's confirmed**, and every finding traces to a specific Splunk search result.
 
+![SOC Sentinel architecture](docs/architecture.png)
+
+*(Rendered image above — source: [`docs/architecture.dot`](docs/architecture.dot). The Mermaid below renders the same flow inline on GitHub.)*
+
 ```mermaid
 flowchart TD
     A["👤 SOC analyst<br/>(natural-language ask)"] --> AG
 
     subgraph AGENT["SOC Sentinel agent (Python)"]
       AG["🧠 Orchestrator<br/>Claude (Anthropic) reasons + picks tools"]
-      VAL["🧪 Finding Validator<br/>code checks the AI:<br/>every claim → a real Splunk row"]
+      VAL["🧪 3-Layer Validator (the gate)<br/>L1 trace · L2 corroborate · L3 calibrate<br/>code checks the AI"]
       REP["📋 Report<br/>confirmed / needs-review,<br/>each traced to its search"]
     end
 
@@ -40,7 +44,7 @@ The agent never touches Splunk directly — it goes through the **Splunk MCP Ser
 2. Orchestrator (Claude) plans + calls the **Splunk MCP Server** →
 3. MCP Server runs **SPL** against **Splunk Enterprise** → returns rows →
 4. Orchestrator drafts findings with explicit **claims** (field = value) →
-5. **Finding Validator** checks every claim against the returned rows — unsupported → blocked back to the agent; fully-traced → confirmed →
+5. **3-Layer Validator** checks every claim against the returned rows (L1 trace → L2 corroboration → L3 calibration) — unsupported → blocked back to the agent; fully-traced → confirmed with a HIGH/MEDIUM/LOW confidence →
 6. **Report** to the analyst: each finding linked to the exact search that proves it.
 
 ## Trust boundary
