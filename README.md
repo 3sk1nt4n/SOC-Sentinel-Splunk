@@ -48,6 +48,9 @@ for Splunk. Every candidate finding the AI proposes runs through three determini
 Disposition: `confirmed` (all claims trace) · `needs_review` (some) · `rejected` (none) ·
 `inconclusive` (no claims). Confidence is only ever assigned to confirmed findings.
 
+See the full step-by-step flow — *the conductor owns every step; the AI acts only inside
+the `⟦ AI ✦ ⟧` brackets* — in **[`docs/PIPELINE.md`](docs/PIPELINE.md)**.
+
 ## How AI + Splunk are used (at runtime)
 
 - **Reasoning:** **Claude (Anthropic)** drives the investigation loop — forms a hypothesis,
