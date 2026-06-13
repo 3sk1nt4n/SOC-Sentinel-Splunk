@@ -1,0 +1,75 @@
+SOC SENTINEL — UNIVERSAL MULTI-CLOUD HUNT  (29 confirmed across 31 behavioural detectors, 7 domains)
+========================================================================
+
+── IDENTITY ──
+  [HIGH  ] T1110      Authentication brute force (failure burst from one source)
+           src_ip=203.0.113.66  · corroborated by 5 source(s)
+  [HIGH  ] T1110.004  Cloud console login failures from one source
+           sourceIPAddress=203.0.113.66  · corroborated by 5 source(s)
+
+── WEB ──
+  [HIGH  ] T1190      Web exploitation attempt (SQLi / path-traversal)
+           src_ip=203.0.113.66  · corroborated by 5 source(s)
+
+── ENDPOINT ──
+  [LOW   ] T1059.001  Obfuscated / encoded PowerShell execution
+           host=WIN-APP01  · corroborated by 1 source(s)
+  [LOW   ] T1059      Office application spawned a shell / script interpreter
+           host=WIN-APP01  · corroborated by 1 source(s)
+  [LOW   ] T1105      LOLBin used to download a payload (certutil/bitsadmin/mshta)
+           host=WIN-APP01  · corroborated by 1 source(s)
+  [LOW   ] T1003.001  LSASS memory access (credential dumping)
+           host=WIN-APP01  · corroborated by 1 source(s)
+  [LOW   ] T1547.001  Run-key registry persistence
+           host=WIN-APP01  · corroborated by 1 source(s)
+  [LOW   ] T1053.005  Scheduled task created
+           host=WIN-DC01  · corroborated by 1 source(s)
+  [LOW   ] T1543.003  Service installed from a temp / user-writable path (possible rootkit)
+           service_name=WinDefendUpd  · corroborated by 1 source(s)
+  [LOW   ] T1562.001  Endpoint protection tampering (Defender disabled)
+           host=WIN-APP01  · corroborated by 1 source(s)
+  [HIGH  ] T1078      Sensitive privilege assignment (SeDebug / SeTcb / SeLoadDriver)
+           user=svc_backup  · corroborated by 3 source(s)
+  [LOW   ] T1070.001  Security / audit log cleared (anti-forensics)
+           host=WIN-DC01  · corroborated by 1 source(s)
+
+── NETWORK ──
+  [HIGH  ] T1021      Lateral movement (one account into many hosts)
+           user=svc_backup  · corroborated by 3 source(s)
+  [HIGH  ] T1071.004  DNS tunnelling (many long unique subdomains)
+           src_ip=10.10.0.42  · corroborated by 6 source(s)
+  [MEDIUM] T1567      Large outbound transfer (egress-volume outlier)
+           dest_ip=198.51.100.23  · corroborated by 2 source(s)
+
+── AWS ──
+  [HIGH  ] T1078.004  AWS root account used
+           sourceIPAddress=203.0.113.66  · corroborated by 5 source(s)
+  [HIGH  ] T1562.008  AWS CloudTrail logging disabled
+           userIdentity_userName=svc-deploy  · corroborated by 4 source(s)
+  [HIGH  ] T1098      AWS IAM privilege escalation (admin policy attached)
+           userIdentity_userName=svc-deploy  · corroborated by 4 source(s)
+  [HIGH  ] T1098.001  AWS access key created
+           userIdentity_userName=svc-deploy  · corroborated by 4 source(s)
+  [HIGH  ] T1562.007  AWS security group opened to the world (0.0.0.0/0)
+           userIdentity_userName=svc-deploy  · corroborated by 4 source(s)
+  [LOW   ] T1530      AWS S3 bucket exposed publicly
+           requestParameters_bucketName=corp-backups-prod  · corroborated by 1 source(s)
+
+── AZURE ──
+  [MEDIUM] T1078.004  Azure AD risky sign-in (high risk / legacy auth)
+           userPrincipalName=svc-deploy@corp.com  · corroborated by 2 source(s)
+  [MEDIUM] T1098.003  Azure AD privileged role granted (Global Administrator / Owner)
+           initiatedBy=svc-deploy@corp.com  · corroborated by 2 source(s)
+  [MEDIUM] T1098.001  Azure AD service-principal credential added (backdoor)
+           initiatedBy=svc-deploy@corp.com  · corroborated by 2 source(s)
+
+── GCP ──
+  [LOW   ] T1098      GCP IAM owner/editor role granted
+           principalEmail=svc-deploy@corp.iam.gserviceaccount.com  · corroborated by 1 source(s)
+  [LOW   ] T1098.001  GCP service-account key created
+           principalEmail=svc-deploy@corp.iam.gserviceaccount.com  · corroborated by 1 source(s)
+  [LOW   ] T1530      GCP storage bucket exposed publicly (allUsers)
+           principalEmail=svc-deploy@corp.iam.gserviceaccount.com  · corroborated by 1 source(s)
+  [LOW   ] T1562.008  GCP logging sink deleted
+           principalEmail=svc-deploy@corp.iam.gserviceaccount.com  · corroborated by 1 source(s)
+

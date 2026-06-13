@@ -26,7 +26,7 @@ step()  { printf '%s$ %s' "$GRN" "$RST"; type_out "$1"; read -rsp "$(printf '%s 
 beat()  { read -rsp "$(printf '%s  ▸ Enter to continue…%s' "$DIM" "$RST")"; printf '\n'; }
 
 clear
-banner "SOC Sentinel — an agentic SOC analyst you can TRUST"
+python3 scripts/intro.py    # animated glowy welcome banner
 say "Point an AI at your SIEM and it confidently invents breaches that aren't in the data."
 say "SOC Sentinel: Claude investigates Splunk via the MCP Server — but CODE, not the model, decides what's confirmed."
 say "(Open docs/architecture.png to show the flow.)"
