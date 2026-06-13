@@ -111,13 +111,14 @@ def build_events(now: float) -> list[tuple]:
     WEB = ("access_combined", "/var/log/httpd/access_log")
     FW = ("cisco:asa", "udp:514")
 
-    # 1) Normal auth noise across the day (legit logins)
+    # 1) Normal auth noise — each user has 1-2 "home" hosts (realistic; keeps the
+    #    lateral-movement detector clean so only the compromised account sprawls)
+    home = {u: random.sample(hosts, 2) for u in users}
     for _ in range(140):
-        ts = now - random.uniform(0, DAY)
         u = random.choice(users)
-        h = random.choice(hosts)
+        h = random.choice(home[u])
         sip = f"10.10.{random.randint(0,3)}.{random.randint(2,250)}"
-        ev.append((ts, SECURE[0], SECURE[1], h,
+        ev.append((ts := now - random.uniform(0, DAY), SECURE[0], SECURE[1], h,
                    f'app=sshd action=success user={u} src_ip={sip} dest_host={h} '
                    f'reason="Accepted password for {u}"'))
 

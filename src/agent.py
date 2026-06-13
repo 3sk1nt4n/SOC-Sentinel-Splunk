@@ -260,7 +260,13 @@ def _have_key() -> bool:
 
 
 if __name__ == "__main__":
-    if "--demo" in sys.argv or not (_have_key() or sys.stdin.isatty()):
+    if "--hunt" in sys.argv:
+        from detections import hunt, print_hunt  # noqa: E402
+        idx = next((a for a in sys.argv[1:] if not a.startswith("-")), "soc_demo")
+        mcp = SplunkMCP(); mcp.initialize()
+        print(f"Running the universal behavioural detection pack against index={idx}…")
+        print_hunt(hunt(mcp, idx))
+    elif "--demo" in sys.argv or not (_have_key() or sys.stdin.isatty()):
         print("Running deterministic 3-layer gate demo on index=soc_demo (no API key needed)…")
         demo_validator_gate()
     else:
