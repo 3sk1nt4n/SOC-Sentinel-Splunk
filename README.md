@@ -131,6 +131,20 @@ rule):
 validates each hit; corroboration across independent sourcetypes is what elevates
 the real attacker to HIGH and leaves single-source noise at LOW.
 
+## Reporting
+
+Every hunt/investigation produces an analyst-ready **incident report** (Markdown +
+styled self-contained HTML) — executive summary, **MITRE ATT&CK coverage matrix**,
+a color-coded findings table (confidence + corroboration), and **per-technique
+remediation with the exact re-runnable SPL** that proves each finding. Sample:
+[`reports/incident_report.html`](reports/incident_report.html).
+
+![Incident report](reports/incident_report.png)
+
+A real live Claude (Haiku) investigation transcript — 30+ MCP tool calls, findings
+gated by the validator — is saved at
+[`artifacts/sample_investigation.txt`](artifacts/sample_investigation.txt).
+
 ## Layout
 
 | File | Purpose |
