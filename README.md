@@ -49,7 +49,9 @@ Disposition: `confirmed` (all claims trace) · `needs_review` (some) · `rejecte
 `inconclusive` (no claims). Confidence is only ever assigned to confirmed findings.
 
 See the full step-by-step flow — *the conductor owns every step; the AI acts only inside
-the `⟦ AI ✦ ⟧` brackets* — in **[`docs/PIPELINE.md`](docs/PIPELINE.md)**.
+the `⟦ AI ✦ ⟧` brackets* — in **[`docs/PIPELINE.md`](docs/PIPELINE.md)**:
+
+![SOC Sentinel pipeline](docs/pipeline.png)
 
 ## How AI + Splunk are used (at runtime)
 

@@ -374,8 +374,9 @@ def main():
         os.remove(os.path.join(FRAMEDIR, f))
 
     # ── ACT 1 — the problem ──
-    emit(scene_arch_flow(130))                                    # ~5.4s flowing architecture
-    emit(scene_title(70))                                         # glowy title
+    emit(scene_title(64))                                         # glowy title
+    emit(image_scene("docs/pipeline.png", 210, pan=True))        # the fancy pipeline, featured early
+    emit(scene_arch_flow(110))                                    # flowing architecture (data view)
     emit(scene_problem(150))                                      # the hallucination problem
     emit(scene_caption("AI fills gaps with guesses", ["Like an eager intern who writes “a burglar in a red car”", "— when there was no red car."], 90, AMBER))
     emit(scene_caption("Can you trust it?", ["Can you trust what an AI says about your security data?"], 70, RED))
