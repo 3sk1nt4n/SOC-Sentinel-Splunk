@@ -1,0 +1,141 @@
+🤖 SOC Sentinel agent — model: claude-haiku-4-5-20251001 · 10 Splunk MCP tools available
+🔑 Anthropic API key loaded from: API_KEY.txt
+
+🧠 [0] I'll investigate suspicious authentication and outbound network activity in the soc_demo index. Let me start by exploring the data and running targeted searches.
+🔧 MCP call: splunk_get_index_info({"index_name": "soc_demo"})
+🔧 MCP call: splunk_get_metadata({"index": "soc_demo", "type": "sourcetypes", "earliest_time": "-24h"})
+🔧 MCP call: splunk_get_metadata({"index": "soc_demo", "type": "hosts", "earliest_time": "-24h"})
+🔧 MCP call: splunk_get_metadata({"index": "soc_demo", "type": "sources", "earliest_time": "-24h"})
+
+🧠 [1] Good! I have a comprehensive data landscape. Now let me search for suspicious authentication activity across the index. Let me check for failed authentication attempts and anomalous login patterns.
+🔧 MCP call: splunk_run_query({"query": "index=soc_demo earliest=-24h (sourcetype=linux_secure OR sourcetype=windows:security OR sourcetype=azure:aad:signin) (action=failure OR failed=true O)
+🔧 MCP call: splunk_run_query({"query": "index=soc_demo earliest=-24h sourcetype=linux_secure | stats count by user, src, host | sort - count", "earliest_time": "-24h", "row_limit": 100})
+🔧 MCP call: splunk_run_query({"query": "index=soc_demo earliest=-24h sourcetype=windows:security | stats count by user, src, host, action | sort - count", "earliest_time": "-24h", "row_limi)
+
+🧠 [2] Let me explore the actual field names in the authentication logs:
+🔧 MCP call: splunk_run_query({"query": "index=soc_demo earliest=-24h sourcetype=linux_secure | head 5", "earliest_time": "-24h", "row_limit": 5})
+🔧 MCP call: splunk_run_query({"query": "index=soc_demo earliest=-24h sourcetype=windows:security | head 5", "earliest_time": "-24h", "row_limit": 5})
+🔧 MCP call: splunk_run_query({"query": "index=soc_demo earliest=-24h sourcetype=azure:aad:signin | head 5", "earliest_time": "-24h", "row_limit": 5})
+🔧 MCP call: splunk_run_query({"query": "index=soc_demo earliest=-24h sourcetype=cisco:asa | head 5", "earliest_time": "-24h", "row_limit": 5})
+
+🧠 [3] Excellent! I can see the field structures now. Let me search for suspicious patterns:
+
+1. Azure AD sign-ins with high risk from external IP
+2. Windows authentication to multiple machines from same IP
+3. Outbound network activity from suspicious sources
+🔧 MCP call: splunk_run_query({"query": "index=soc_demo earliest=-24h sourcetype=azure:aad:signin | stats count by userPrincipalName, ipAddress, riskLevel | sort - count", "earliest_time": ")
+🔧 MCP call: splunk_run_query({"query": "index=soc_demo earliest=-24h sourcetype=windows:security EventCode=4624 | stats count by user, src_ip | sort - count", "earliest_time": "-24h", "row_)
+🔧 MCP call: splunk_run_query({"query": "index=soc_demo earliest=-24h sourcetype=linux_secure action=failure | stats count by user, src_ip", "earliest_time": "-24h", "row_limit": 100})
+
+🧠 [4] Interesting! I'm seeing suspicious activity. Let me get more details:
+🔧 MCP call: splunk_run_query({"query": "index=soc_demo earliest=-24h sourcetype=azure:aad:signin userPrincipalName=svc-deploy@corp.com | stats values(ipAddress), values(riskLevel), values(r)
+🔧 MCP call: splunk_run_query({"query": "index=soc_demo earliest=-24h sourcetype=linux_secure action=failure user=svc_backup src_ip=203.0.113.66 | head 10", "earliest_time": "-24h", "row_lim)
+🔧 MCP call: splunk_run_query({"query": "index=soc_demo earliest=-24h sourcetype=cisco:asa src_ip=10.10.0.42 OR src_ip=10.10.1.96 OR src_ip=10.10.1.83 OR src_ip=203.0.113.66 | stats count by)
+
+🧠 [5] This is very revealing! Let me investigate further to identify successful compromises and data exfiltration:
+🔧 MCP call: splunk_run_query({"query": "index=soc_demo earliest=-24h sourcetype=linux_secure user=svc_backup action=success | stats count by src_ip, dest_host | sort - count", "earliest_tim)
+🔧 MCP call: splunk_run_query({"query": "index=soc_demo earliest=-24h sourcetype=windows:security user=svc_backup | stats count by EventCode, message | sort - count", "earliest_time": "-24h")
+🔧 MCP call: splunk_run_query({"query": "index=soc_demo earliest=-24h sourcetype=cisco:asa src_ip=10.10.0.42 dest_ip=198.51.100.23 dest_port=443 | stats sum(bytes_out) as total_bytes_out, su)
+🔧 MCP call: splunk_run_query({"query": "index=soc_demo earliest=-24h sourcetype=access_combined | stats count by clientip, status, uri | sort - count", "earliest_time": "-24h", "row_limit":)
+
+🧠 [6] Perfect! I'm seeing a clear picture. Let me get more details about the svc_backup account's activities and the attack timeline:
+🔧 MCP call: splunk_run_query({"query": "index=soc_demo earliest=-24h user=svc_backup | stats min(_time) as first_activity, max(_time) as last_activity, count by sourcetype | sort first_acti)
+🔧 MCP call: splunk_run_query({"query": "index=soc_demo earliest=-24h sourcetype=windows:security user=svc_backup EventCode=4625 | stats count by src_ip | sort - count", "earliest_time": "-2)
+🔧 MCP call: splunk_run_query({"query": "index=soc_demo earliest=-24h ipAddress=203.0.113.66 | stats min(_time) as first_activity, max(_time) as last_activity, count by sourcetype | sort fir)
+🔧 MCP call: splunk_run_query({"query": "index=soc_demo earliest=-24h src_ip=203.0.113.66 | stats min(_time) as first_activity, max(_time) as last_activity, count by sourcetype | sort first_)
+
+🧠 [7] Let me get the actual timestamps in a readable format and look at the relationship between svc_backup and the attacking IP:
+🔧 MCP call: splunk_run_query({"query": "index=soc_demo earliest=-24h (user=svc_backup AND src_ip=203.0.113.66) OR (userPrincipalName=svc-deploy@corp.com AND ipAddress=203.0.113.66) | stats )
+🔧 MCP call: splunk_run_query({"query": "index=soc_demo earliest=-24h userPrincipalName=svc-deploy@corp.com ipAddress=203.0.113.66 | table _time, userPrincipalName, ipAddress, riskLevel, res)
+🔧 MCP call: splunk_run_query({"query": "index=soc_demo earliest=-24h src_ip=203.0.113.66 action=failure user=svc_backup | stats count by dest_host", "earliest_time": "-24h", "row_limit": 10)
+🔧 MCP call: splunk_run_query({"query": "index=soc_demo earliest=-24h src_ip=203.0.113.66 action=success user=svc_backup | table _time, user, src_ip, dest_host", "earliest_time": "-24h", "ro)
+
+🧠 [8] Excellent! Now let me look at the access_combined logs with the suspicious sources and the data exfiltration activity:
+🔧 MCP call: splunk_run_query({"query": "index=soc_demo earliest=-24h sourcetype=access_combined | table _time, clientip, status, bytes, uri, useragent | sort - bytes", "earliest_time": "-24)
+🔧 MCP call: splunk_run_query({"query": "index=soc_demo earliest=-24h sourcetype=cisco:asa src_ip=10.10.0.42 | table _time, src_ip, dest_ip, dest_port, bytes_out, bytes_in, action | sort - b)
+🔧 MCP call: splunk_run_query({"query": "index=soc_demo earliest=-24h dest_ip=198.51.100.23 | stats count, sum(bytes_out), sum(bytes_in) by src_ip, dest_ip, dest_port", "earliest_time": "-24)
+
+🧠 [9] Perfect! Let me get more details on the svc_backup account and look for post-compromise activities:
+🔧 MCP call: splunk_run_query({"query": "index=soc_demo earliest=-24h user=svc_backup | stats count by sourcetype, action | sort - count", "earliest_time": "-24h", "row_limit": 100})
+🔧 MCP call: splunk_run_query({"query": "index=soc_demo earliest=-24h src_ip=10.10.0.42 | stats count by sourcetype | sort - count", "earliest_time": "-24h", "row_limit": 100})
+🔧 MCP call: splunk_run_query({"query": "index=soc_demo earliest=-24h EventCode=4698 user=svc_backup | table _time, EventCode, message, TaskName", "earliest_time": "-24h", "row_limit": 100})
+🔧 MCP call: splunk_run_query({"query": "index=soc_demo earliest=-24h EventCode=1102 | table _time, user, message", "earliest_time": "-24h", "row_limit": 100})
+
+🧠 [10] Excellent! Now let me verify the IP 10.10.0.42 origin and get all the hosts successfully compromised:
+🔧 MCP call: splunk_run_query({"query": "index=soc_demo earliest=-24h src_ip=10.10.0.42 action=success | stats count by dest_host, sourcetype", "earliest_time": "-24h", "row_limit": 100})
+🔧 MCP call: splunk_run_query({"query": "index=soc_demo earliest=-24h (src_ip=203.0.113.66 OR ipAddress=203.0.113.66) | stats count by sourcetype, _time | sort _time", "earliest_time": "-24h)
+🔧 MCP call: splunk_run_query({"query": "index=soc_demo earliest=-24h userPrincipalName=svc-deploy@corp.com | stats count, min(_time), max(_time), values(ipAddress), values(riskLevel), value)
+🔧 MCP call: splunk_run_query({"query": "index=soc_demo earliest=-24h src_ip=203.0.113.66 user=svc_backup | stats count by action, dest_host", "earliest_time": "-24h", "row_limit": 100})
+
+🧠 [11] Now let me identify which internal host corresponds to IP 10.10.0.42:
+🔧 MCP call: splunk_run_query({"query": "index=soc_demo earliest=-24h 10.10.0.42 | stats values(host) by sourcetype | head 20", "earliest_time": "-24h", "row_limit": 100})
+🔧 MCP call: splunk_run_query({"query": "index=soc_demo earliest=-24h sourcetype=linux_secure src_ip=10.10.0.42 action=success | table host, user, src_ip, dest_host", "earliest_time": "-24h")
+🔧 MCP call: splunk_run_query({"query": "index=soc_demo earliest=-24h sourcetype=windows:security src_ip=10.10.0.42 | table host, user, src_ip, message, EventCode", "earliest_time": "-24h", )
+
+🧠 [finalize] ```json
+{
+  "findings": [
+    {
+      "id": "F1",
+      "title": "Compromised Service Account: svc_backup",
+      "severity": "high",
+      "summary": "The svc_backup service account has been compromised and used to establish persistent access across multiple critical infrastructure hosts. The account shows 45 failed authentication attempts from attacker IP 203.0.113.66, followed by successful lateral movement from internal IP 10.10.0.42 to app01, db01, dc01, and fs01 systems.",
+      "claims": 
+
+================================================================
+SOC SENTINEL — INVESTIGATION REPORT
+================================================================
+Question: Investigate suspicious authentication and outbound network activity across all data sources in index=soc_demo over the last 24h. Identify the compromised account and the attacker source.
+Evidence rows gathered via Splunk MCP: 380
+Tool calls: 43
+
+✅ Confirmed (every claim traced to Splunk): 5
+   - [HIGH] Compromised Service Account: svc_backup
+        corroboration: 3 independent source(s): cisco:asa, linux_secure, windows:security
+        user=svc_backup -> ✓ in Splunk results
+        action=failure -> ✓ in Splunk results
+        src_ip=203.0.113.66 -> ✓ in Splunk results
+        count=45 -> ✓ in Splunk results
+        dest_host=vpn01 -> ✓ in Splunk results
+        action=success -> ✓ in Splunk results
+        src_ip=10.10.0.42 -> ✓ in Splunk results
+        dest_host=app01 -> ✓ in Splunk results
+   - [HIGH] Attacker Source IP: 203.0.113.66
+        corroboration: 3 independent source(s): azure:aad:signin, linux_secure, windows:security
+        ipAddress=203.0.113.66 -> ✓ in Splunk results
+        userPrincipalName=svc-deploy@corp.com -> ✓ in Splunk results
+        riskLevel=high -> ✓ in Splunk results
+        resultType=50074 -> ✓ in Splunk results
+        count=6 -> ✓ in Splunk results
+        src_ip=203.0.113.66 -> ✓ in Splunk results
+        user=svc_backup -> ✓ in Splunk results
+        action=failure -> ✓ in Splunk results
+   - [HIGH] Lateral Movement to Multiple Critical Hosts
+        corroboration: 3 independent source(s): cisco:asa, linux_secure, windows:security
+        src_ip=10.10.0.42 -> ✓ in Splunk results
+        user=svc_backup -> ✓ in Splunk results
+        action=success -> ✓ in Splunk results
+        dest_host=db01 -> ✓ in Splunk results
+        dest_host=dc01 -> ✓ in Splunk results
+        dest_host=fs01 -> ✓ in Splunk results
+        host=WIN-DB01 -> ✓ in Splunk results
+        EventCode=4624 -> ✓ in Splunk results
+        message=An account was successfully logged on -> ✓ in Splunk results
+   - [HIGH] Data Exfiltration via External C2 Server
+        corroboration: 3 independent source(s): cisco:asa, linux_secure, windows:security
+        src_ip=10.10.0.42 -> ✓ in Splunk results
+        dest_ip=198.51.100.23 -> ✓ in Splunk results
+        dest_port=443 -> ✓ in Splunk results
+        sum(bytes_out)=912383561 -> ✓ in Splunk results
+        sum(bytes_in)=30087 -> ✓ in Splunk results
+        count=41 -> ✓ in Splunk results
+   - [MEDIUM] Post-Compromise Evidence Destruction
+        corroboration: 2 independent source(s): linux_secure, windows:security
+        EventCode=1102 -> ✓ in Splunk results
+        user=svc_backup -> ✓ in Splunk results
+        message=The audit log was cleared -> ✓ in Splunk results
+        EventCode=4698 -> ✓ in Splunk results
+        message=A scheduled task was created -> ✓ in Splunk results
+        TaskName=\UpdateCheck -> ✓ in Splunk results
+
+🚫 Needs review / rejected (unsupported claims dropped): 0
