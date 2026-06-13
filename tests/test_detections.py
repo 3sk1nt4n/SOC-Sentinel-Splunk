@@ -48,6 +48,14 @@ def test_no_answer_keys():
             assert ioc not in d["spl"], f"{d['id']} hardcodes demo IOC {ioc}"
 
 
+def test_high_value_coverage():
+    """The Find-Evil-grade high-value detectors must be present (log-native ports)."""
+    ids = {d["id"] for d in DETECTIONS}
+    for need in ("credential_dump", "recon_burst", "psexec_lateral", "rdp_lateral",
+                 "wmi_persistence", "process_masquerade", "antiforensics_deletion", "ransomware_prep"):
+        assert need in ids, f"missing high-value detector: {need}"
+
+
 def test_kill_chain_breadth():
     tactics = {d["tactic"] for d in DETECTIONS}
     # We claim ATT&CK breadth — require coverage of the core phases.

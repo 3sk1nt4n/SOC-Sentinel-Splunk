@@ -31,6 +31,7 @@ DEFAULT_THRESHOLDS = {
     "min_cloud_fail": 5,       # failed cloud logins from one source
     "dns_len": 40,             # DNS query length suggesting tunnelling
     "dns_uniq": 10,            # distinct long subdomains => tunnelling
+    "recon_min": 3,            # distinct recon commands from one host => discovery burst
 }
 
 # domain, id, tactic, technique, title, entity (primary claim field), spl template.
@@ -115,6 +116,39 @@ DETECTIONS = [
      "title": "Large outbound transfer (egress-volume outlier)", "entity": "dest_ip",
      "spl": 'search index={index} bytes_out=* dest_ip=* | stats max(bytes_out) as max_out sum(bytes_out) as total_out by src_ip dest_ip '
             '| where max_out>={min_exfil_bytes} | sort -max_out | head 5'},
+
+    # ---------------- Advanced endpoint / lateral (Find-Evil-grade, log-native) ----------------
+    {"domain": "endpoint", "id": "credential_dump", "tactic": "Credential Access", "technique": "T1003",
+     "title": "Credential dumping (SAM/SYSTEM hive save or LSASS minidump)", "entity": "host",
+     "spl": 'search index={index} (CommandLine="*reg* save*SAM*" OR CommandLine="*reg* save*SYSTEM*" OR CommandLine="*comsvcs*MiniDump*" OR CommandLine="*procdump*lsass*" OR CommandLine="*ntdsutil*ifm*") '
+            '| table _time host Image CommandLine | head 5'},
+    {"domain": "endpoint", "id": "recon_burst", "tactic": "Discovery", "technique": "T1087",
+     "title": "Discovery / recon burst (net · systeminfo · tasklist · nltest)", "entity": "host",
+     "spl": 'search index={index} EventCode=1 (CommandLine="*net view*" OR CommandLine="*net group*" OR CommandLine="*systeminfo*" OR CommandLine="*tasklist*" OR CommandLine="*nltest*" OR CommandLine="*whoami /priv*") '
+            '| stats dc(CommandLine) as recon_cmds by host | where recon_cmds>={recon_min} | sort -recon_cmds | head 5'},
+    {"domain": "network", "id": "psexec_lateral", "tactic": "Lateral Movement", "technique": "T1021.002",
+     "title": "PsExec lateral movement (PSEXESVC service + admin share)", "entity": "host",
+     "spl": 'search index={index} ((EventCode=7045 service_name=*PSEXESVC*) OR (EventCode=5140 (share_name="*ADMIN$*" OR share_name="*IPC$*" OR share_name="*C$*"))) '
+            '| table _time host service_name share_name user | head 5'},
+    {"domain": "network", "id": "rdp_lateral", "tactic": "Lateral Movement", "technique": "T1021.001",
+     "title": "RDP lateral movement (Type-10 RemoteInteractive logon)", "entity": "user",
+     "spl": 'search index={index} EventCode=4624 LogonType=10 user=* | stats count by user src_ip dest_host | sort -count | head 5'},
+    {"domain": "endpoint", "id": "wmi_persistence", "tactic": "Persistence", "technique": "T1546.003",
+     "title": "WMI event-subscription persistence (CommandLineEventConsumer)", "entity": "host",
+     "spl": 'search index={index} (EventCode=5861 OR "CommandLineEventConsumer" OR "ActiveScriptEventConsumer") '
+            '| table _time host consumer query | head 5'},
+    {"domain": "endpoint", "id": "process_masquerade", "tactic": "Defense Evasion", "technique": "T1036.005",
+     "title": "System-process masquerade (system binary from a non-System32 path)", "entity": "host",
+     "spl": 'search index={index} EventCode=1 (Image="*\\lsass.exe" OR Image="*\\svchost.exe" OR Image="*\\services.exe" OR Image="*\\smss.exe") '
+            'NOT (Image="C:\\Windows\\System32\\*" OR Image="C:\\Windows\\SysWOW64\\*") | table _time host Image ParentImage | head 5'},
+    {"domain": "endpoint", "id": "antiforensics_deletion", "tactic": "Defense Evasion", "technique": "T1070.004",
+     "title": "Anti-forensics — secure/mass file deletion (sdelete · cipher)", "entity": "host",
+     "spl": 'search index={index} (CommandLine="*sdelete*" OR CommandLine="*cipher /w*" OR CommandLine="*sdelete64*" OR Image="*sdelete*") '
+            '| table _time host Image CommandLine | head 5'},
+    {"domain": "endpoint", "id": "ransomware_prep", "tactic": "Impact", "technique": "T1490",
+     "title": "Ransomware prep — shadow-copy deletion / recovery disabled", "entity": "host",
+     "spl": 'search index={index} (CommandLine="*vssadmin*delete*shadows*" OR CommandLine="*wmic*shadowcopy*delete*" OR CommandLine="*bcdedit*recoveryenabled*no*" OR CommandLine="*wbadmin*delete*catalog*") '
+            '| table _time host CommandLine | head 5'},
 
     # ---------------- AWS ----------------
     {"domain": "aws", "id": "aws_root_usage", "tactic": "Privilege Escalation", "technique": "T1078.004",

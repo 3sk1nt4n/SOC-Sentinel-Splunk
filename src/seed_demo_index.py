@@ -333,6 +333,28 @@ def build_events(now: float) -> list[tuple]:
         ev.append((beacon_start + i * random.uniform(5, 12), "stream:dns", "dns", "fw01",
                    f'src_ip=10.10.0.42 query={sub}.tun.evil-c2.example query_type=TXT'))
 
+    # 17) Advanced post-compromise (Find-Evil-grade, log-native) — by the compromised account.
+    #     Universal behavioural signals (cred-dump, recon, PsExec/RDP lateral, WMI persistence,
+    #     masquerade, anti-forensics, ransomware-prep) — no case-specific indicators.
+    WMI = ("windows:wmi", "wmi_activity.log")
+    ev += [
+        (breach + 240, SYSMON[0], SYSMON[1], "WIN-APP01", 'EventCode=1 Image="C:\\Windows\\System32\\reg.exe" CommandLine="reg save HKLM\\SAM C:\\Windows\\Temp\\sam.save" User=svc_backup'),
+        (breach + 250, SYSMON[0], SYSMON[1], "WIN-APP01", 'EventCode=1 Image="C:\\Windows\\System32\\rundll32.exe" CommandLine="rundll32 comsvcs.dll MiniDump 612 C:\\Windows\\Temp\\l.dmp full" User=svc_backup'),
+        (breach + 300, SYSMON[0], SYSMON[1], "WIN-APP01", 'EventCode=1 Image="C:\\Windows\\System32\\net.exe" CommandLine="net view /domain" User=svc_backup'),
+        (breach + 305, SYSMON[0], SYSMON[1], "WIN-APP01", 'EventCode=1 Image="C:\\Windows\\System32\\net.exe" CommandLine="net group Domain-Admins /domain" User=svc_backup'),
+        (breach + 310, SYSMON[0], SYSMON[1], "WIN-APP01", 'EventCode=1 Image="C:\\Windows\\System32\\systeminfo.exe" CommandLine="systeminfo" User=svc_backup'),
+        (breach + 315, SYSMON[0], SYSMON[1], "WIN-APP01", 'EventCode=1 Image="C:\\Windows\\System32\\tasklist.exe" CommandLine="tasklist /v" User=svc_backup'),
+        (breach + 320, SYSMON[0], SYSMON[1], "WIN-APP01", 'EventCode=1 Image="C:\\Windows\\System32\\nltest.exe" CommandLine="nltest /dclist:corp" User=svc_backup'),
+        (breach + 360, WINSYS[0], WINSYS[1], "WIN-DB01", 'EventCode=7045 service_name=PSEXESVC image_path="C:\\Windows\\PSEXESVC.exe" service_type="user mode service" message="A new service was installed"'),
+        (breach + 365, WINSEC[0], WINSEC[1], "WIN-DB01", 'EventCode=5140 share_name="ADMIN$" user=svc_backup src_ip=10.10.0.42 message="A network share object was accessed"'),
+        (breach + 380, WINSEC[0], WINSEC[1], "WIN-APP01", 'EventCode=4624 LogonType=10 user=svc_backup src_ip=10.10.0.42 dest_host=WIN-APP01 message="An account was successfully logged on (RemoteInteractive)"'),
+        (breach + 420, WMI[0], WMI[1], "WIN-DC01", 'EventCode=5861 consumer=CommandLineEventConsumer query="SELECT * FROM __InstanceModificationEvent" command="powershell -nop -w hidden -enc <b64>" message="WMI permanent event subscription created"'),
+        (breach + 440, SYSMON[0], SYSMON[1], "WIN-APP01", 'EventCode=1 Image="C:\\Windows\\Temp\\svchost.exe" ParentImage="C:\\Windows\\System32\\cmd.exe" CommandLine="svchost.exe -k netsvcs" User=svc_backup'),
+        (breach + 3300, SYSMON[0], SYSMON[1], "WIN-APP01", 'EventCode=1 Image="C:\\Windows\\Temp\\sdelete64.exe" CommandLine="sdelete64 -p 3 -nobanner C:\\Windows\\Temp\\*.exe C:\\Windows\\Temp\\*.dmp" User=svc_backup'),
+        (breach + 3400, SYSMON[0], SYSMON[1], "WIN-DC01", 'EventCode=1 Image="C:\\Windows\\System32\\vssadmin.exe" CommandLine="vssadmin delete shadows /all /quiet" User=svc_backup'),
+        (breach + 3410, SYSMON[0], SYSMON[1], "WIN-DC01", 'EventCode=1 Image="C:\\Windows\\System32\\bcdedit.exe" CommandLine="bcdedit /set recoveryenabled no" User=svc_backup'),
+    ]
+
     ev.sort(key=lambda e: e[0])
     return ev
 

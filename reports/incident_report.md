@@ -4,9 +4,9 @@ _Scope: Universal hunt · `index=soc_demo`_
 
 ## Executive summary
 
-SOC Sentinel confirmed **29 findings** spanning **23 MITRE ATT&CK techniques** across **9 tactics** and **11 data sources**; **11 are HIGH confidence**. Every confirmed finding is backed by a real Splunk search result.
+SOC Sentinel confirmed **40 findings** spanning **31 MITRE ATT&CK techniques** across **11 tactics** and **11 data sources**; **12 are HIGH confidence**. Every confirmed finding is backed by a real Splunk search result.
 
-**Assessment:** multi-stage intrusion — Initial Access → Execution → Persistence → Privilege Escalation → Defense Evasion → Credential Access → Lateral Movement → Command and Control → Exfiltration. Treat as an active incident.
+**Assessment:** multi-stage intrusion — Initial Access → Execution → Persistence → Privilege Escalation → Defense Evasion → Credential Access → Discovery → Lateral Movement → Command and Control → Exfiltration → Impact. Treat as an active incident.
 **Highest risk:** Authentication brute force (failure burst from one source) — T1110 (risk 100/100, HIGH). Findings are ranked by risk = confidence × corroboration × tactic impact.
 
 ## MITRE ATT&CK coverage
@@ -15,13 +15,15 @@ SOC Sentinel confirmed **29 findings** spanning **23 MITRE ATT&CK techniques** a
 |---|---|
 | Initial Access | T1078.004, T1190 |
 | Execution | T1059, T1059.001 |
-| Persistence | T1053.005, T1098.001, T1543.003, T1547.001 |
+| Persistence | T1053.005, T1098.001, T1543.003, T1546.003, T1547.001 |
 | Privilege Escalation | T1078, T1078.004, T1098, T1098.003 |
-| Defense Evasion | T1070.001, T1562.001, T1562.007, T1562.008 |
-| Credential Access | T1003.001, T1110, T1110.004 |
-| Lateral Movement | T1021 |
+| Defense Evasion | T1036.005, T1070.001, T1070.004, T1562.001, T1562.007, T1562.008 |
+| Credential Access | T1003, T1003.001, T1110, T1110.004 |
+| Discovery | T1087 |
+| Lateral Movement | T1021, T1021.001, T1021.002 |
 | Command and Control | T1071.004, T1105 |
 | Exfiltration | T1530, T1567 |
+| Impact | T1490 |
 
 ## Confirmed findings — ranked by risk (highest first)
 
@@ -38,22 +40,33 @@ SOC Sentinel confirmed **29 findings** spanning **23 MITRE ATT&CK techniques** a
 | 93 | 🔴 | HIGH | T1562.007 | AWS security group opened to the world (0.0.0.0/0) | `userIdentity_userName=svc-deploy` | 4 source(s) |
 | 89 | 🔴 | HIGH | T1078 | Sensitive privilege assignment (SeDebug / SeTcb / SeLoadDriver) | `user=svc_backup` | 3 source(s) |
 | 89 | 🔴 | HIGH | T1021 | Lateral movement (one account into many hosts) | `user=svc_backup` | 3 source(s) |
+| 89 | 🔴 | HIGH | T1021.001 | RDP lateral movement (Type-10 RemoteInteractive logon) | `user=svc_backup` | 3 source(s) |
 | 61 | 🟠 | MEDIUM | T1567 | Large outbound transfer (egress-volume outlier) | `dest_ip=198.51.100.23` | 2 source(s) |
 | 59 | 🟠 | MEDIUM | T1098.003 | Azure AD privileged role granted (Global Administrator / Owner) | `initiatedBy=svc-deploy@corp.com` | 2 source(s) |
 | 58 | 🟠 | MEDIUM | T1098.001 | Azure AD service-principal credential added (backdoor) | `initiatedBy=svc-deploy@corp.com` | 2 source(s) |
 | 57 | 🟠 | MEDIUM | T1078.004 | Azure AD risky sign-in (high risk / legacy auth) | `userPrincipalName=svc-deploy@corp.com` | 2 source(s) |
 | 31 | 🟡 | LOW | T1530 | AWS S3 bucket exposed publicly | `requestParameters_bucketName=corp-backups-prod` | 1 source(s) |
 | 31 | 🟡 | LOW | T1530 | GCP storage bucket exposed publicly (allUsers) | `principalEmail=svc-deploy@corp.iam.gserviceaccount.com` | 1 source(s) |
+| 31 | 🟡 | LOW | T1490 | Ransomware prep — shadow-copy deletion / recovery disabled | `host=WIN-DC01` | 1 source(s) |
+| 31 | 🟡 | LOW | T1490 | Ransomware prep — shadow-copy deletion / recovery disabled | `host=WIN-DC01` | 1 source(s) |
 | 30 | 🟡 | LOW | T1003.001 | LSASS memory access (credential dumping) | `host=WIN-APP01` | 1 source(s) |
+| 30 | 🟡 | LOW | T1003 | Credential dumping (SAM/SYSTEM hive save or LSASS minidump) | `host=WIN-APP01` | 1 source(s) |
+| 30 | 🟡 | LOW | T1003 | Credential dumping (SAM/SYSTEM hive save or LSASS minidump) | `host=WIN-APP01` | 1 source(s) |
 | 30 | 🟡 | LOW | T1105 | LOLBin used to download a payload (certutil/bitsadmin/mshta) | `host=WIN-APP01` | 1 source(s) |
 | 29 | 🟡 | LOW | T1098 | GCP IAM owner/editor role granted | `principalEmail=svc-deploy@corp.iam.gserviceaccount.com` | 1 source(s) |
+| 29 | 🟡 | LOW | T1021.002 | PsExec lateral movement (PSEXESVC service + admin share) | `host=WIN-DB01` | 1 source(s) |
+| 29 | 🟡 | LOW | T1021.002 | PsExec lateral movement (PSEXESVC service + admin share) | `host=WIN-DB01` | 1 source(s) |
 | 28 | 🟡 | LOW | T1547.001 | Run-key registry persistence | `host=WIN-APP01` | 1 source(s) |
 | 28 | 🟡 | LOW | T1053.005 | Scheduled task created | `host=WIN-DC01` | 1 source(s) |
 | 28 | 🟡 | LOW | T1543.003 | Service installed from a temp / user-writable path (possible rootkit) | `service_name=WinDefendUpd` | 1 source(s) |
+| 28 | 🟡 | LOW | T1546.003 | WMI event-subscription persistence (CommandLineEventConsumer) | `host=WIN-DC01` | 1 source(s) |
 | 28 | 🟡 | LOW | T1098.001 | GCP service-account key created | `principalEmail=svc-deploy@corp.iam.gserviceaccount.com` | 1 source(s) |
 | 28 | 🟡 | LOW | T1562.001 | Endpoint protection tampering (Defender disabled) | `host=WIN-APP01` | 1 source(s) |
 | 28 | 🟡 | LOW | T1070.001 | Security / audit log cleared (anti-forensics) | `host=WIN-DC01` | 1 source(s) |
+| 28 | 🟡 | LOW | T1036.005 | System-process masquerade (system binary from a non-System32 path) | `host=WIN-APP01` | 1 source(s) |
+| 28 | 🟡 | LOW | T1070.004 | Anti-forensics — secure/mass file deletion (sdelete · cipher) | `host=WIN-APP01` | 1 source(s) |
 | 28 | 🟡 | LOW | T1562.008 | GCP logging sink deleted | `principalEmail=svc-deploy@corp.iam.gserviceaccount.com` | 1 source(s) |
+| 28 | 🟡 | LOW | T1087 | Discovery / recon burst (net · systeminfo · tasklist · nltest) | `host=WIN-APP01` | 1 source(s) |
 | 27 | 🟡 | LOW | T1059.001 | Obfuscated / encoded PowerShell execution | `host=WIN-APP01` | 1 source(s) |
 | 27 | 🟡 | LOW | T1059 | Office application spawned a shell / script interpreter | `host=WIN-APP01` | 1 source(s) |
 
@@ -136,6 +149,13 @@ SOC Sentinel confirmed **29 findings** spanning **23 MITRE ATT&CK techniques** a
   search index=soc_demo (action=success OR EventCode=4624) user=* (dest_host=* OR ComputerName=*) | eval _h=coalesce(dest_host,ComputerName) | stats dc(_h) as hosts values(_h) as host_list by user | where hosts>=3 | sort -hosts | head 5
   ```
 
+### T1021.001 — RDP lateral movement (Type-10 RemoteInteractive logon)
+- **Remediation:** Reset the account; restrict RDP to jump hosts + MFA; review the source and all Type-10 logons in the window.
+- **Reproduce in Splunk:**
+  ```spl
+  search index=soc_demo EventCode=4624 LogonType=10 user=* | stats count by user src_ip dest_host | sort -count | head 5
+  ```
+
 ### T1567 — Large outbound transfer (egress-volume outlier)
 - **Remediation:** Block the destination; assess what data was exposed; engage IR/legal for breach handling; preserve evidence.
 - **Reproduce in Splunk:**
@@ -178,11 +198,25 @@ SOC Sentinel confirmed **29 findings** spanning **23 MITRE ATT&CK techniques** a
   search index=soc_demo methodName=storage.setIamPolicy (member=allUsers OR member=allAuthenticatedUsers) | table _time principalEmail resourceName | head 5
   ```
 
+### T1490 — Ransomware prep — shadow-copy deletion / recovery disabled
+- **Remediation:** URGENT — shadow-copy deletion / recovery-disable precedes encryption. Isolate immediately, block the host, ensure off-host immutable backups, hunt for the encryptor.
+- **Reproduce in Splunk:**
+  ```spl
+  search index=soc_demo (CommandLine="*vssadmin*delete*shadows*" OR CommandLine="*wmic*shadowcopy*delete*" OR CommandLine="*bcdedit*recoveryenabled*no*" OR CommandLine="*wbadmin*delete*catalog*") | table _time host CommandLine | head 5
+  ```
+
 ### T1003.001 — LSASS memory access (credential dumping)
 - **Remediation:** Treat as credential theft: reset ALL credentials used on the host, enable Credential Guard / LSA protection, isolate immediately.
 - **Reproduce in Splunk:**
   ```spl
   search index=soc_demo EventCode=10 TargetImage="*lsass*" | table _time host SourceImage TargetImage GrantedAccess | head 5
+  ```
+
+### T1003 — Credential dumping (SAM/SYSTEM hive save or LSASS minidump)
+- **Remediation:** Treat ALL credentials on the host as compromised — force a domain-wide reset; enable LSA protection/Credential Guard; isolate; hunt for the dumped hive/minidump file.
+- **Reproduce in Splunk:**
+  ```spl
+  search index=soc_demo (CommandLine="*reg* save*SAM*" OR CommandLine="*reg* save*SYSTEM*" OR CommandLine="*comsvcs*MiniDump*" OR CommandLine="*procdump*lsass*" OR CommandLine="*ntdsutil*ifm*") | table _time host Image CommandLine | head 5
   ```
 
 ### T1105 — LOLBin used to download a payload (certutil/bitsadmin/mshta)
@@ -197,6 +231,13 @@ SOC Sentinel confirmed **29 findings** spanning **23 MITRE ATT&CK techniques** a
 - **Reproduce in Splunk:**
   ```spl
   search index=soc_demo methodName=SetIamPolicy (role="roles/owner" OR role="roles/editor") | table _time principalEmail role member | head 5
+  ```
+
+### T1021.002 — PsExec lateral movement (PSEXESVC service + admin share)
+- **Remediation:** Disable and reset the account; remove the PSEXESVC service; restrict admin-share (IPC$/ADMIN$/C$) access; review every host it reached.
+- **Reproduce in Splunk:**
+  ```spl
+  search index=soc_demo ((EventCode=7045 service_name=*PSEXESVC*) OR (EventCode=5140 (share_name="*ADMIN$*" OR share_name="*IPC$*" OR share_name="*C$*"))) | table _time host service_name share_name user | head 5
   ```
 
 ### T1547.001 — Run-key registry persistence
@@ -220,6 +261,13 @@ SOC Sentinel confirmed **29 findings** spanning **23 MITRE ATT&CK techniques** a
   search index=soc_demo EventCode=7045 (image_path="*Temp*" OR image_path="*AppData*" OR image_path="*ProgramData*" OR image_path="*\Users\*") | table _time host service_name image_path service_type | head 5
   ```
 
+### T1546.003 — WMI event-subscription persistence (CommandLineEventConsumer)
+- **Remediation:** Remove the WMI event subscription (filter + consumer); audit the WMI repository; alert on new permanent subscriptions.
+- **Reproduce in Splunk:**
+  ```spl
+  search index=soc_demo (EventCode=5861 OR "CommandLineEventConsumer" OR "ActiveScriptEventConsumer") | table _time host consumer query | head 5
+  ```
+
 ### T1098.001 — GCP service-account key created
 - **Remediation:** Validate or disable the key; prefer Workload Identity over keys; alert on key creation.
 - **Reproduce in Splunk:**
@@ -241,11 +289,32 @@ SOC Sentinel confirmed **29 findings** spanning **23 MITRE ATT&CK techniques** a
   search index=soc_demo (EventCode=1102 OR EventCode=104 OR "audit log was cleared" OR "wevtutil*cl") | table _time host user | head 5
   ```
 
+### T1036.005 — System-process masquerade (system binary from a non-System32 path)
+- **Remediation:** Treat as active intrusion — a system binary running from a non-System32 path is almost always malicious; isolate, collect the binary, reimage if a driver.
+- **Reproduce in Splunk:**
+  ```spl
+  search index=soc_demo EventCode=1 (Image="*\lsass.exe" OR Image="*\svchost.exe" OR Image="*\services.exe" OR Image="*\smss.exe") NOT (Image="C:\Windows\System32\*" OR Image="C:\Windows\SysWOW64\*") | table _time host Image ParentImage | head 5
+  ```
+
+### T1070.004 — Anti-forensics — secure/mass file deletion (sdelete · cipher)
+- **Remediation:** Treat as active intrusion (evidence destruction); preserve remaining artifacts + journals to immutable storage; isolate; identify what was wiped.
+- **Reproduce in Splunk:**
+  ```spl
+  search index=soc_demo (CommandLine="*sdelete*" OR CommandLine="*cipher /w*" OR CommandLine="*sdelete64*" OR Image="*sdelete*") | table _time host Image CommandLine | head 5
+  ```
+
 ### T1562.008 — GCP logging sink deleted
 - **Remediation:** Recreate the logging sink; alert on sink deletion; review the blind-spot window.
 - **Reproduce in Splunk:**
   ```spl
   search index=soc_demo methodName="*DeleteSink*" | table _time principalEmail callerIp | head 5
+  ```
+
+### T1087 — Discovery / recon burst (net · systeminfo · tasklist · nltest)
+- **Remediation:** Confirm the activity is not legitimate admin work; if not, isolate the host and trace the account; alert on recon-tool bursts from non-admin parents.
+- **Reproduce in Splunk:**
+  ```spl
+  search index=soc_demo EventCode=1 (CommandLine="*net view*" OR CommandLine="*net group*" OR CommandLine="*systeminfo*" OR CommandLine="*tasklist*" OR CommandLine="*nltest*" OR CommandLine="*whoami /priv*") | stats dc(CommandLine) as recon_cmds by host | where recon_cmds>=3 | sort -recon_cmds | head 5
   ```
 
 ### T1059.001 — Obfuscated / encoded PowerShell execution

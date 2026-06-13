@@ -375,7 +375,7 @@ def main():
 
     # ── ACT 1 — the problem ──
     emit(scene_title(64))                                         # glowy title
-    emit(image_scene("docs/pipeline.png", 210, pan=True))        # the fancy pipeline, featured early
+    emit(image_scene("docs/pipeline.png", 330, pan=True))        # fancy pipeline — slow pan, read step by step
     emit(scene_arch_flow(110))                                    # flowing architecture (data view)
     emit(scene_problem(150))                                      # the hallucination problem
     emit(scene_caption("AI fills gaps with guesses", ["Like an eager intern who writes “a burglar in a red car”", "— when there was no red car."], 90, AMBER))

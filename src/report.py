@@ -25,7 +25,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from detections import DEFAULT_THRESHOLDS, DETECTIONS  # noqa: E402
 
 _TACTIC_ORDER = ["Initial Access", "Execution", "Persistence", "Privilege Escalation",
-                 "Defense Evasion", "Credential Access", "Lateral Movement",
+                 "Defense Evasion", "Credential Access", "Discovery", "Lateral Movement",
                  "Command and Control", "Exfiltration", "Impact"]
 
 # Universal remediation guidance per detector (no case-specific values).
@@ -61,6 +61,14 @@ REMEDIATIONS = {
     "gcp_sa_key_created": "Validate or disable the key; prefer Workload Identity over keys; alert on key creation.",
     "gcp_public_bucket": "Remove allUsers/allAuthenticatedUsers; enforce public-access prevention; review object access.",
     "gcp_logging_disabled": "Recreate the logging sink; alert on sink deletion; review the blind-spot window.",
+    "credential_dump": "Treat ALL credentials on the host as compromised — force a domain-wide reset; enable LSA protection/Credential Guard; isolate; hunt for the dumped hive/minidump file.",
+    "recon_burst": "Confirm the activity is not legitimate admin work; if not, isolate the host and trace the account; alert on recon-tool bursts from non-admin parents.",
+    "psexec_lateral": "Disable and reset the account; remove the PSEXESVC service; restrict admin-share (IPC$/ADMIN$/C$) access; review every host it reached.",
+    "rdp_lateral": "Reset the account; restrict RDP to jump hosts + MFA; review the source and all Type-10 logons in the window.",
+    "wmi_persistence": "Remove the WMI event subscription (filter + consumer); audit the WMI repository; alert on new permanent subscriptions.",
+    "process_masquerade": "Treat as active intrusion — a system binary running from a non-System32 path is almost always malicious; isolate, collect the binary, reimage if a driver.",
+    "antiforensics_deletion": "Treat as active intrusion (evidence destruction); preserve remaining artifacts + journals to immutable storage; isolate; identify what was wiped.",
+    "ransomware_prep": "URGENT — shadow-copy deletion / recovery-disable precedes encryption. Isolate immediately, block the host, ensure off-host immutable backups, hunt for the encryptor.",
 }
 _GENERIC_REM = "Investigate, contain the affected asset/identity, and follow the incident-response playbook for this technique."
 # technique -> remediation, derived from the detector pack so Claude findings reuse it.
@@ -69,7 +77,7 @@ _REM_BY_TECH = {d["technique"]: REMEDIATIONS[d["id"]] for d in DETECTIONS if d["
 _CONF_BASE = {"HIGH": 70, "MEDIUM": 45, "LOW": 20}
 _IMPACT = {"Exfiltration": 6, "Impact": 6, "Command and Control": 5, "Credential Access": 5,
            "Lateral Movement": 4, "Privilege Escalation": 4, "Persistence": 3,
-           "Defense Evasion": 3, "Execution": 2, "Initial Access": 2}
+           "Defense Evasion": 3, "Discovery": 3, "Execution": 2, "Initial Access": 2}
 _SEV = {"HIGH": "🔴", "MEDIUM": "🟠", "LOW": "🟡"}
 
 

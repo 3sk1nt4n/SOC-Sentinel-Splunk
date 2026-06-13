@@ -31,7 +31,7 @@ GREY, GREEN, BLUE, AMBER, PURPLE, SLATE = (96, 106, 120), (101, 166, 55), (54, 1
 STEPS = [
     (GREY, "0", "n", "SETUP", ["key: env -> .env -> API_KEY.txt -> hidden prompt (never echoed/committed)", "model locked to Haiku - cost-safe"], False, False),
     (GREEN, "1", "n", "CONNECT — Splunk MCP Server", ["mint aud=mcp token  -  MCP initialize / tools-list", "10 typed Splunk tools  -  never a shell"], False, False),
-    (SLATE, "2", "n", "ANALYST ASK", ["a plain-English question about your security data"], False, False),
+    (SLATE, "2", "n", "ANALYST ASK — a real SOC question", ['e.g.  "Was anything compromised in the last 24h? Show me the high-risk alerts."'], False, False),
     (BLUE, "✦", "s", "AI · INVESTIGATION LOOP  (ReAct)", ["reason -> act -> observe — Claude runs SPL via the MCP Server", "every result row accumulated + tagged by sourcetype"], True, False),
     (BLUE, "✦", "s", "AI · FINALIZE", ["draft findings:  title · MITRE technique · tactic · claims (field=value)"], True, False),
     (AMBER, "★", "s", "3-LAYER VALIDATOR — code checks the AI", ["L1 TRACE        every claim -> a REAL Splunk result row", "L2 CORROBORATE  count independent sourcetypes", "L3 CALIBRATE    3+ = HIGH · 2 = MEDIUM · 1 = LOW"], False, True),

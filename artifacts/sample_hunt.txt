@@ -1,4 +1,4 @@
-SOC SENTINEL — UNIVERSAL MULTI-CLOUD HUNT  (29 confirmed across 31 behavioural detectors, 7 domains)
+SOC SENTINEL — UNIVERSAL MULTI-CLOUD HUNT  (40 confirmed across 39 behavioural detectors, 7 domains)
 ========================================================================
 
 ── IDENTITY ──
@@ -32,6 +32,22 @@ SOC SENTINEL — UNIVERSAL MULTI-CLOUD HUNT  (29 confirmed across 31 behavioural
            user=svc_backup  · corroborated by 3 source(s)
   [LOW   ] T1070.001  Security / audit log cleared (anti-forensics)
            host=WIN-DC01  · corroborated by 1 source(s)
+  [LOW   ] T1003      Credential dumping (SAM/SYSTEM hive save or LSASS minidump)
+           host=WIN-APP01  · corroborated by 1 source(s)
+  [LOW   ] T1003      Credential dumping (SAM/SYSTEM hive save or LSASS minidump)
+           host=WIN-APP01  · corroborated by 1 source(s)
+  [LOW   ] T1087      Discovery / recon burst (net · systeminfo · tasklist · nltest)
+           host=WIN-APP01  · corroborated by 1 source(s)
+  [LOW   ] T1546.003  WMI event-subscription persistence (CommandLineEventConsumer)
+           host=WIN-DC01  · corroborated by 1 source(s)
+  [LOW   ] T1036.005  System-process masquerade (system binary from a non-System32 path)
+           host=WIN-APP01  · corroborated by 1 source(s)
+  [LOW   ] T1070.004  Anti-forensics — secure/mass file deletion (sdelete · cipher)
+           host=WIN-APP01  · corroborated by 1 source(s)
+  [LOW   ] T1490      Ransomware prep — shadow-copy deletion / recovery disabled
+           host=WIN-DC01  · corroborated by 1 source(s)
+  [LOW   ] T1490      Ransomware prep — shadow-copy deletion / recovery disabled
+           host=WIN-DC01  · corroborated by 1 source(s)
 
 ── NETWORK ──
   [HIGH  ] T1021      Lateral movement (one account into many hosts)
@@ -40,6 +56,12 @@ SOC SENTINEL — UNIVERSAL MULTI-CLOUD HUNT  (29 confirmed across 31 behavioural
            src_ip=10.10.0.42  · corroborated by 6 source(s)
   [MEDIUM] T1567      Large outbound transfer (egress-volume outlier)
            dest_ip=198.51.100.23  · corroborated by 2 source(s)
+  [LOW   ] T1021.002  PsExec lateral movement (PSEXESVC service + admin share)
+           host=WIN-DB01  · corroborated by 1 source(s)
+  [LOW   ] T1021.002  PsExec lateral movement (PSEXESVC service + admin share)
+           host=WIN-DB01  · corroborated by 1 source(s)
+  [HIGH  ] T1021.001  RDP lateral movement (Type-10 RemoteInteractive logon)
+           user=svc_backup  · corroborated by 3 source(s)
 
 ── AWS ──
   [HIGH  ] T1078.004  AWS root account used

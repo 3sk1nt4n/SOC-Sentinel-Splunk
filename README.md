@@ -112,10 +112,13 @@ That gate is what stops AI hallucinations reaching the report.
 
 ## Universal detection library
 
-`src/detections.py` ships **12 behavioural detectors** spanning the ATT&CK kill
-chain. Each finds *structure or behaviour* — never a hardcoded IP/host/hash — so it
-survives a held-out environment (`tests/test_detections.py` enforces the no-answer-keys
-rule):
+`src/detections.py` ships **39 behavioural detectors** across **7 domains** and the
+full ATT&CK kill chain. Each finds *structure or behaviour* — never a hardcoded
+IP/host/hash — so it survives a held-out environment (`tests/test_detections.py`
+enforces the no-answer-keys rule). They include **Find-Evil-grade high-value detectors**
+ported to log-native Splunk: credential dumping (SAM/LSASS), recon bursts, PsExec/RDP
+lateral movement, WMI event-subscription persistence, system-process masquerade,
+anti-forensics (secure-wipe), and ransomware prep (shadow-copy deletion). A sample:
 
 | Tactic | Technique | Detector |
 |---|---|---|
