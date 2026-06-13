@@ -15,7 +15,7 @@ set -u
 cd "$(dirname "$0")/.." || exit 1
 
 BLUE=$'\e[1;34m'; GRN=$'\e[1;32m'; DIM=$'\e[2m'; YEL=$'\e[1;33m'; RST=$'\e[0m'
-DELAY=${DEMO_FAST:+0}; DELAY=${DELAY-0.018}
+if [ -n "${DEMO_FAST:-}" ]; then DELAY=0; else DELAY="0.018"; fi
 
 banner() { printf '\n%s══════════════════════════════════════════════════════════════%s\n' "$BLUE" "$RST"
            printf '%s  %s%s\n' "$BLUE" "$1" "$RST"
