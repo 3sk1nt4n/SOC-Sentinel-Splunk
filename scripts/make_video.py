@@ -393,7 +393,7 @@ def main():
     emit(scene_caption("…and blocks the guesses", ["Claims the data can't support are BLOCKED — no hallucinations reach you."], 75, RED))
     emit(scene_caption("Clear reporting — MITRE & risk", ["Ranked worst-first, mapped to ATT&CK, with how to fix each one."], 72, GREEN))
     emit(image_scene("reports/incident_report.png", 175, pan=True))
-    emit(scene_caption("Universal & multi-cloud", ["31 behavioural detectors — AWS, Azure, GCP, endpoint, identity, network.", "No hardcoded IOCs: it works on any environment."], 85, BLUE))
+    emit(scene_caption("Universal & multi-cloud", ["39 behavioural detectors — full ATT&CK kill chain across AWS, Azure, GCP,", "endpoint, identity & network. No hardcoded IOCs: it works anywhere."], 85, BLUE))
     emit(scroll("artifacts/sample_hunt.txt", 120))
     emit(scene_caption("In one sentence", ["The AI does the thinking. The code checks the facts.", "Nothing made-up ever reaches your report."], 105, GREEN))
     emit(scene_caption("Code checks the AI.", ["SOC Sentinel — agentic SOC analysis you can trust.", "github.com/3sk1nt4n/SOC-Sentinel-Splunk"], 80))

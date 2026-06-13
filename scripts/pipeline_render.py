@@ -37,7 +37,7 @@ STEPS = [
     (AMBER, "★", "s", "3-LAYER VALIDATOR — code checks the AI", ["L1 TRACE        every claim -> a REAL Splunk result row", "L2 CORROBORATE  count independent sourcetypes", "L3 CALIBRATE    3+ = HIGH · 2 = MEDIUM · 1 = LOW"], False, True),
     (BLUE, "6", "n", "RISK RANKING  (deterministic)", ["risk = confidence × corroboration × tactic impact  ->  0-100, worst first"], False, False),
     (GREEN, "7", "n", "REPORT", ["risk-ranked · ATT&CK matrix · remediation + the re-runnable SPL", "Markdown + styled HTML · 'Blocked by the validator' section"], False, False),
-    (PURPLE, "H", "n", "alternate entry:  --hunt", ["31 universal behavioural detectors · 7 domains (AWS/Azure/GCP/endpoint…)", "no hardcoded IOCs  ->  same 3-layer validator  ->  same report"], False, False),
+    (PURPLE, "H", "n", "alternate entry:  --hunt", ["39 universal behavioural detectors · 7 domains · full ATT&CK kill chain", "no hardcoded IOCs  ->  same 3-layer validator  ->  same report"], False, False),
 ]
 
 W = 1240
