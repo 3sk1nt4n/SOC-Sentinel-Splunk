@@ -44,12 +44,16 @@ Discipline:
 - When done, output a SINGLE fenced ```json block, no prose after it, shaped:
   {"findings": [
      {"id": "F1", "title": "...", "severity": "high|medium|low",
+      "technique": "<MITRE ATT&CK technique id, e.g. T1110>",
+      "tactic": "<MITRE tactic, e.g. Credential Access>",
       "summary": "...",
       "claims": [{"field": "<result field>", "value": "<exact value seen>"}]}
   ]}
   Every claim's field/value MUST be a column/value you actually saw in a result \
 row. The host system will independently re-check each claim against the Splunk \
-rows; unsupported claims are dropped, so do not pad."""
+rows; unsupported claims are dropped, so do not pad.
+- Report up to 8 of the MOST significant findings, each with 1-4 claims. Be concise \
+so the JSON stays small."""
 
 
 # --------------------------------------------------------------------------
@@ -104,16 +108,19 @@ def _infer_sourcetype(spl: str) -> str | None:
 
 
 def _extract_findings(text: str) -> list[dict]:
-    """Pull the findings list out of the model's final ```json block."""
-    if "```" in text:
-        seg = text.split("```", 2)
-        block = seg[1] if len(seg) > 1 else text
-        block = block[4:] if block.lstrip().lower().startswith("json") else block
-        block = block.strip().lstrip("json").strip()
-    else:
-        block = text
+    """Robustly pull the findings list out of the model's final answer: prefer a
+    fenced ```json block, else the outermost {...}. Returns [] on parse failure."""
+    if not text:
+        return []
+    m = re.search(r"```(?:json)?\s*(\{.*\})\s*```", text, re.S)
+    raw = m.group(1) if m else None
+    if not raw:
+        i, j = text.find("{"), text.rfind("}")
+        raw = text[i:j + 1] if i != -1 and j > i else None
+    if not raw:
+        return []
     try:
-        data = json.loads(block)
+        data = json.loads(raw)
         return data.get("findings", []) if isinstance(data, dict) else []
     except Exception:
         return []
@@ -180,7 +187,7 @@ def run_investigation(question: str, *, model: str = DEFAULT_MODEL,
             "Stop investigating now. Using ONLY the evidence already gathered, output the "
             "findings JSON block exactly as specified in your instructions — a single ```json "
             "fenced block and nothing else."})
-        resp = _anthropic(messages, [], model=model, max_tokens=2048)
+        resp = _anthropic(messages, [], model=model, max_tokens=4096)
         for b in resp.get("content", []):
             if b.get("type") == "text" and b.get("text", "").strip():
                 final_text = b["text"]
@@ -188,7 +195,12 @@ def run_investigation(question: str, *, model: str = DEFAULT_MODEL,
             print(f"\n🧠 [finalize] {final_text[:500]}")
 
     findings = _extract_findings(final_text)
-    validated = [validate_finding(f, evidence_rows) for f in findings]
+    validated = []
+    for f in findings:
+        v = validate_finding(f, evidence_rows)
+        v["technique"] = f.get("technique")   # carry MITRE through the validator
+        v["tactic"] = f.get("tactic")
+        validated.append(v)
     return {"question": question, "findings": validated,
             "audit": audit, "evidence_row_count": len(evidence_rows),
             "raw_findings": findings}
@@ -279,18 +291,22 @@ def _have_key() -> bool:
 if __name__ == "__main__":
     if "--hunt" in sys.argv:
         from detections import hunt, print_hunt  # noqa: E402
-        from report import write_reports  # noqa: E402
+        from report import from_hunt, write_reports  # noqa: E402
         idx = next((a for a in sys.argv[1:] if not a.startswith("-")), "soc_demo")
         mcp = SplunkMCP(); mcp.initialize()
         print(f"Running the universal behavioural detection pack against index={idx}…")
         results = hunt(mcp, idx)
         print_hunt(results)
-        paths = write_reports(results, idx)
+        paths = write_reports(from_hunt(results, idx), index=idx, scope_label="Universal hunt")
         print(f"\n📄 Reports written: {paths['markdown']} · {paths['html']}")
     elif "--demo" in sys.argv or not (_have_key() or sys.stdin.isatty()):
         print("Running deterministic 3-layer gate demo on index=soc_demo (no API key needed)…")
         demo_validator_gate()
     else:
+        from report import from_agent, write_reports  # noqa: E402
         q = " ".join(a for a in sys.argv[1:] if not a.startswith("-")) or \
             "Investigate suspicious authentication and outbound network activity in index=soc_demo over the last 24h."
-        _print_report(run_investigation(q))
+        result = run_investigation(q)
+        _print_report(result)
+        paths = write_reports(from_agent(result, "soc_demo"), index="soc_demo", scope_label="Claude investigation")
+        print(f"\n📄 Reports written: {paths['markdown']} · {paths['html']}")

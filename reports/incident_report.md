@@ -1,12 +1,13 @@
 # 🛡️ SOC Sentinel — Incident Report
 
+_Scope: Universal hunt · `index=soc_demo`_
+
 ## Executive summary
 
-SOC Sentinel autonomously investigated `index=soc_demo` and confirmed **29 findings** spanning **23 MITRE ATT&CK techniques** across **9 tactics** and **11 data sources**. **11 are HIGH confidence** (corroborated by ≥3 independent sources). Every finding below is backed by a real Splunk search result — claims the data could not support were blocked by the validator and are not reported as fact.
+SOC Sentinel confirmed **29 findings** spanning **23 MITRE ATT&CK techniques** across **9 tactics** and **11 data sources**; **11 are HIGH confidence**. Every confirmed finding is backed by a real Splunk search result.
 
-**Assessment:** the evidence describes a multi-stage intrusion — Initial Access → Execution → Persistence → Privilege Escalation → Defense Evasion → Credential Access → Lateral Movement → Command and Control → Exfiltration. Treat as an active incident.
-
-**Highest risk:** Authentication brute force (failure burst from one source) — T1110 (risk 100/100, HIGH confidence). Findings below are ranked by risk = confidence × corroboration × tactic impact.
+**Assessment:** multi-stage intrusion — Initial Access → Execution → Persistence → Privilege Escalation → Defense Evasion → Credential Access → Lateral Movement → Command and Control → Exfiltration. Treat as an active incident.
+**Highest risk:** Authentication brute force (failure burst from one source) — T1110 (risk 100/100, HIGH). Findings are ranked by risk = confidence × corroboration × tactic impact.
 
 ## MITRE ATT&CK coverage
 
