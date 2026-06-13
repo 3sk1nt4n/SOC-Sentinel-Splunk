@@ -149,6 +149,18 @@ DETECTIONS = [
      "title": "Ransomware prep — shadow-copy deletion / recovery disabled", "entity": "host",
      "spl": 'search index={index} (CommandLine="*vssadmin*delete*shadows*" OR CommandLine="*wmic*shadowcopy*delete*" OR CommandLine="*bcdedit*recoveryenabled*no*" OR CommandLine="*wbadmin*delete*catalog*") '
             '| table _time host CommandLine | head 5'},
+    {"domain": "endpoint", "id": "process_injection", "tactic": "Defense Evasion", "technique": "T1055",
+     "title": "Process injection (CreateRemoteThread / RWX cross-process access)", "entity": "host",
+     "spl": 'search index={index} (EventCode=8 OR (EventCode=10 (GrantedAccess="0x1F0FFF" OR GrantedAccess="0x1F3FFF" OR GrantedAccess="0x1410" OR GrantedAccess="0x143A"))) '
+            'NOT TargetImage="*lsass.exe" | table _time host SourceImage TargetImage GrantedAccess | head 5'},
+    {"domain": "endpoint", "id": "process_hollowing", "tactic": "Defense Evasion", "technique": "T1055.012",
+     "title": "Process hollowing / image replacement (Sysmon ProcessTampering)", "entity": "host",
+     "spl": 'search index={index} (EventCode=25 OR "ProcessTampering" OR "Image is replaced") '
+            '| table _time host Image Type | head 5'},
+    {"domain": "endpoint", "id": "reflective_dll_load", "tactic": "Defense Evasion", "technique": "T1055.001",
+     "title": "Reflective / unsigned DLL load from a user-writable path", "entity": "host",
+     "spl": 'search index={index} EventCode=7 (ImageLoaded="*Temp*" OR ImageLoaded="*AppData*" OR ImageLoaded="*ProgramData*") (Signed=false OR SignatureStatus=Unavailable OR Signature=Unsigned) '
+            '| table _time host Image ImageLoaded | head 5'},
 
     # ---------------- AWS ----------------
     {"domain": "aws", "id": "aws_root_usage", "tactic": "Privilege Escalation", "technique": "T1078.004",

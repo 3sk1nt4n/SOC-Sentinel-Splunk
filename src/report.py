@@ -69,6 +69,9 @@ REMEDIATIONS = {
     "process_masquerade": "Treat as active intrusion — a system binary running from a non-System32 path is almost always malicious; isolate, collect the binary, reimage if a driver.",
     "antiforensics_deletion": "Treat as active intrusion (evidence destruction); preserve remaining artifacts + journals to immutable storage; isolate; identify what was wiped.",
     "ransomware_prep": "URGENT — shadow-copy deletion / recovery-disable precedes encryption. Isolate immediately, block the host, ensure off-host immutable backups, hunt for the encryptor.",
+    "process_injection": "Active code injection — isolate the host, capture a memory image for the injected payload, reset every credential used on it, and hunt for the source binary.",
+    "process_hollowing": "Treat as confirmed malware: a hollowed/replaced system-process image is running attacker code. Isolate, capture memory, and reimage the host.",
+    "reflective_dll_load": "Investigate the unsigned DLL loaded from a user-writable path (reflective loading); isolate the host and collect the DLL for analysis; enable DLL allow-listing.",
 }
 _GENERIC_REM = "Investigate, contain the affected asset/identity, and follow the incident-response playbook for this technique."
 # technique -> remediation, derived from the detector pack so Claude findings reuse it.

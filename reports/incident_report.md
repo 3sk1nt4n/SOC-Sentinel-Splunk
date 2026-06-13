@@ -4,7 +4,7 @@ _Scope: Universal hunt · `index=soc_demo`_
 
 ## Executive summary
 
-SOC Sentinel confirmed **40 findings** spanning **31 MITRE ATT&CK techniques** across **11 tactics** and **11 data sources**; **12 are HIGH confidence**. Every confirmed finding is backed by a real Splunk search result.
+SOC Sentinel confirmed **44 findings** spanning **34 MITRE ATT&CK techniques** across **11 tactics** and **11 data sources**; **12 are HIGH confidence**. Every confirmed finding is backed by a real Splunk search result.
 
 **Assessment:** multi-stage intrusion — Initial Access → Execution → Persistence → Privilege Escalation → Defense Evasion → Credential Access → Discovery → Lateral Movement → Command and Control → Exfiltration → Impact. Treat as an active incident.
 **Highest risk:** Authentication brute force (failure burst from one source) — T1110 (risk 100/100, HIGH). Findings are ranked by risk = confidence × corroboration × tactic impact.
@@ -17,7 +17,7 @@ SOC Sentinel confirmed **40 findings** spanning **31 MITRE ATT&CK techniques** a
 | Execution | T1059, T1059.001 |
 | Persistence | T1053.005, T1098.001, T1543.003, T1546.003, T1547.001 |
 | Privilege Escalation | T1078, T1078.004, T1098, T1098.003 |
-| Defense Evasion | T1036.005, T1070.001, T1070.004, T1562.001, T1562.007, T1562.008 |
+| Defense Evasion | T1036.005, T1055, T1055.001, T1055.012, T1070.001, T1070.004, T1562.001, T1562.007, T1562.008 |
 | Credential Access | T1003, T1003.001, T1110, T1110.004 |
 | Discovery | T1087 |
 | Lateral Movement | T1021, T1021.001, T1021.002 |
@@ -65,6 +65,10 @@ SOC Sentinel confirmed **40 findings** spanning **31 MITRE ATT&CK techniques** a
 | 28 | 🟡 | LOW | T1070.001 | Security / audit log cleared (anti-forensics) | `host=WIN-DC01` | 1 source(s) |
 | 28 | 🟡 | LOW | T1036.005 | System-process masquerade (system binary from a non-System32 path) | `host=WIN-APP01` | 1 source(s) |
 | 28 | 🟡 | LOW | T1070.004 | Anti-forensics — secure/mass file deletion (sdelete · cipher) | `host=WIN-APP01` | 1 source(s) |
+| 28 | 🟡 | LOW | T1055 | Process injection (CreateRemoteThread / RWX cross-process access) | `host=WIN-APP01` | 1 source(s) |
+| 28 | 🟡 | LOW | T1055 | Process injection (CreateRemoteThread / RWX cross-process access) | `host=WIN-APP01` | 1 source(s) |
+| 28 | 🟡 | LOW | T1055.012 | Process hollowing / image replacement (Sysmon ProcessTampering) | `host=WIN-APP01` | 1 source(s) |
+| 28 | 🟡 | LOW | T1055.001 | Reflective / unsigned DLL load from a user-writable path | `host=WIN-APP01` | 1 source(s) |
 | 28 | 🟡 | LOW | T1562.008 | GCP logging sink deleted | `principalEmail=svc-deploy@corp.iam.gserviceaccount.com` | 1 source(s) |
 | 28 | 🟡 | LOW | T1087 | Discovery / recon burst (net · systeminfo · tasklist · nltest) | `host=WIN-APP01` | 1 source(s) |
 | 27 | 🟡 | LOW | T1059.001 | Obfuscated / encoded PowerShell execution | `host=WIN-APP01` | 1 source(s) |
@@ -301,6 +305,27 @@ SOC Sentinel confirmed **40 findings** spanning **31 MITRE ATT&CK techniques** a
 - **Reproduce in Splunk:**
   ```spl
   search index=soc_demo (CommandLine="*sdelete*" OR CommandLine="*cipher /w*" OR CommandLine="*sdelete64*" OR Image="*sdelete*") | table _time host Image CommandLine | head 5
+  ```
+
+### T1055 — Process injection (CreateRemoteThread / RWX cross-process access)
+- **Remediation:** Active code injection — isolate the host, capture a memory image for the injected payload, reset every credential used on it, and hunt for the source binary.
+- **Reproduce in Splunk:**
+  ```spl
+  search index=soc_demo (EventCode=8 OR (EventCode=10 (GrantedAccess="0x1F0FFF" OR GrantedAccess="0x1F3FFF" OR GrantedAccess="0x1410" OR GrantedAccess="0x143A"))) NOT TargetImage="*lsass.exe" | table _time host SourceImage TargetImage GrantedAccess | head 5
+  ```
+
+### T1055.012 — Process hollowing / image replacement (Sysmon ProcessTampering)
+- **Remediation:** Treat as confirmed malware: a hollowed/replaced system-process image is running attacker code. Isolate, capture memory, and reimage the host.
+- **Reproduce in Splunk:**
+  ```spl
+  search index=soc_demo (EventCode=25 OR "ProcessTampering" OR "Image is replaced") | table _time host Image Type | head 5
+  ```
+
+### T1055.001 — Reflective / unsigned DLL load from a user-writable path
+- **Remediation:** Investigate the unsigned DLL loaded from a user-writable path (reflective loading); isolate the host and collect the DLL for analysis; enable DLL allow-listing.
+- **Reproduce in Splunk:**
+  ```spl
+  search index=soc_demo EventCode=7 (ImageLoaded="*Temp*" OR ImageLoaded="*AppData*" OR ImageLoaded="*ProgramData*") (Signed=false OR SignatureStatus=Unavailable OR Signature=Unsigned) | table _time host Image ImageLoaded | head 5
   ```
 
 ### T1562.008 — GCP logging sink deleted

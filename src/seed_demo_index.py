@@ -338,6 +338,11 @@ def build_events(now: float) -> list[tuple]:
     #     masquerade, anti-forensics, ransomware-prep) — no case-specific indicators.
     WMI = ("windows:wmi", "wmi_activity.log")
     ev += [
+        # memory-injection runtime footprint (log-native equivalent of malfind / hollowprocess)
+        (breach + 130, SYSMON[0], SYSMON[1], "WIN-APP01", 'EventCode=8 SourceImage="C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" TargetImage="C:\\Windows\\explorer.exe" StartFunction="LoadLibraryA" message="CreateRemoteThread detected"'),
+        (breach + 135, SYSMON[0], SYSMON[1], "WIN-APP01", 'EventCode=10 SourceImage="C:\\Windows\\Temp\\svc_update.exe" TargetImage="C:\\Windows\\System32\\svchost.exe" GrantedAccess="0x1F3FFF" message="ProcessAccess (injection)"'),
+        (breach + 145, SYSMON[0], SYSMON[1], "WIN-APP01", 'EventCode=25 Image="C:\\Windows\\System32\\svchost.exe" Type="Image is replaced" message="ProcessTampering: image replaced (hollowing)"'),
+        (breach + 155, SYSMON[0], SYSMON[1], "WIN-APP01", 'EventCode=7 Image="C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" ImageLoaded="C:\\Windows\\Temp\\refl.dll" Signed=false SignatureStatus=Unavailable message="Image loaded (unsigned, from Temp)"'),
         (breach + 240, SYSMON[0], SYSMON[1], "WIN-APP01", 'EventCode=1 Image="C:\\Windows\\System32\\reg.exe" CommandLine="reg save HKLM\\SAM C:\\Windows\\Temp\\sam.save" User=svc_backup'),
         (breach + 250, SYSMON[0], SYSMON[1], "WIN-APP01", 'EventCode=1 Image="C:\\Windows\\System32\\rundll32.exe" CommandLine="rundll32 comsvcs.dll MiniDump 612 C:\\Windows\\Temp\\l.dmp full" User=svc_backup'),
         (breach + 300, SYSMON[0], SYSMON[1], "WIN-APP01", 'EventCode=1 Image="C:\\Windows\\System32\\net.exe" CommandLine="net view /domain" User=svc_backup'),

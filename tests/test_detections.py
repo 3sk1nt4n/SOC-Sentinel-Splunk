@@ -52,7 +52,8 @@ def test_high_value_coverage():
     """The Find-Evil-grade high-value detectors must be present (log-native ports)."""
     ids = {d["id"] for d in DETECTIONS}
     for need in ("credential_dump", "recon_burst", "psexec_lateral", "rdp_lateral",
-                 "wmi_persistence", "process_masquerade", "antiforensics_deletion", "ransomware_prep"):
+                 "wmi_persistence", "process_masquerade", "antiforensics_deletion", "ransomware_prep",
+                 "process_injection", "process_hollowing", "reflective_dll_load"):
         assert need in ids, f"missing high-value detector: {need}"
 
 

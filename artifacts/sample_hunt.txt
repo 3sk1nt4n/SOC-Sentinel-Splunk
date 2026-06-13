@@ -1,4 +1,4 @@
-SOC SENTINEL — UNIVERSAL MULTI-CLOUD HUNT  (40 confirmed across 39 behavioural detectors, 7 domains)
+SOC SENTINEL — UNIVERSAL MULTI-CLOUD HUNT  (44 confirmed across 42 behavioural detectors, 7 domains)
 ========================================================================
 
 ── IDENTITY ──
@@ -48,6 +48,14 @@ SOC SENTINEL — UNIVERSAL MULTI-CLOUD HUNT  (40 confirmed across 39 behavioural
            host=WIN-DC01  · corroborated by 1 source(s)
   [LOW   ] T1490      Ransomware prep — shadow-copy deletion / recovery disabled
            host=WIN-DC01  · corroborated by 1 source(s)
+  [LOW   ] T1055      Process injection (CreateRemoteThread / RWX cross-process access)
+           host=WIN-APP01  · corroborated by 1 source(s)
+  [LOW   ] T1055      Process injection (CreateRemoteThread / RWX cross-process access)
+           host=WIN-APP01  · corroborated by 1 source(s)
+  [LOW   ] T1055.012  Process hollowing / image replacement (Sysmon ProcessTampering)
+           host=WIN-APP01  · corroborated by 1 source(s)
+  [LOW   ] T1055.001  Reflective / unsigned DLL load from a user-writable path
+           host=WIN-APP01  · corroborated by 1 source(s)
 
 ── NETWORK ──
   [HIGH  ] T1021      Lateral movement (one account into many hosts)

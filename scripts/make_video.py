@@ -292,7 +292,7 @@ def scene_steps():
     ]
     for title, body in seq:
         lines = [title, ""] + body
-        for _ in range(46):
+        for _ in range(66):
             out.append(term(lines, "soc-sentinel — setup"))
     return out
 
@@ -312,7 +312,7 @@ def scene_keymask():
     for i in range(len(key) + 1):
         masked = "•" * i + key[i:]
         out.extend([term(head + [f"  🔑 entering key:  {masked}"], "soc-sentinel — auth")] * 1)
-    for _ in range(30):
+    for _ in range(50):
         out.append(term(head + ["  ✓ key loaded from API_KEY.txt", "  • never echoed to screen   • never written to git"], "soc-sentinel — auth"))
     return out
 
@@ -373,30 +373,31 @@ def main():
     for f in os.listdir(FRAMEDIR):
         os.remove(os.path.join(FRAMEDIR, f))
 
+    D = (lambda n: int(n * 1.35))   # slow every scene so there's time to read what's on screen
     # ── ACT 1 — the problem ──
-    emit(scene_title(64))                                         # glowy title
-    emit(image_scene("docs/pipeline.png", 330, pan=True))        # fancy pipeline — slow pan, read step by step
-    emit(scene_arch_flow(110))                                    # flowing architecture (data view)
-    emit(scene_problem(150))                                      # the hallucination problem
-    emit(scene_caption("AI fills gaps with guesses", ["Like an eager intern who writes “a burglar in a red car”", "— when there was no red car."], 90, AMBER))
-    emit(scene_caption("Can you trust it?", ["Can you trust what an AI says about your security data?"], 70, RED))
-    emit(scene_caption("SOC Sentinel makes sure you can", ["The AI investigates — but CODE checks every claim against the real data."], 80))
-    emit(scene_factcheck(175))                                    # keep / block visual
-    emit(scene_caption("How sure is it?", ["Seen in 3+ data sources  ->  HIGH  (act now).", "Seen in only one  ->  LOW  (worth a look)."], 85, BLUE))
+    emit(scene_title(D(64)))                                      # glowy title
+    emit(image_scene("docs/pipeline.png", D(360), pan=True))     # fancy pipeline — slow pan, read step by step
+    emit(image_scene("docs/architecture.png", D(170), pan=False))  # the architecture diagram (file version)
+    emit(scene_problem(D(160)))                                   # the hallucination problem
+    emit(scene_caption("AI fills gaps with guesses", ["Like an eager intern who writes “a burglar in a red car”", "— when there was no red car."], D(95), AMBER))
+    emit(scene_caption("Can you trust it?", ["Can you trust what an AI says about your security data?"], D(75), RED))
+    emit(scene_caption("SOC Sentinel makes sure you can", ["The AI investigates — but CODE checks every claim against the real data."], D(85)))
+    emit(scene_factcheck(D(185)))                                 # keep / block visual
+    emit(scene_caption("How sure is it?", ["Seen in 3+ data sources  ->  HIGH  (act now).", "Seen in only one  ->  LOW  (worth a look)."], D(90), BLUE))
     # ── ACT 2 — a real walkthrough ──
-    emit(scene_caption("Let's see it — for real", ["Set it up, run it, and watch it work end to end."], 56, BLUE))
+    emit(scene_caption("Let's see it — for real", ["Set it up, run it, and watch it work end to end."], D(62), BLUE))
     emit(scene_steps())
     emit(scene_keymask())                                         # glowy hidden API-key entry
-    emit(scene_caption("Run it", ["Claude investigates Splunk live through the MCP Server."], 50, BLUE))
-    emit(scroll("artifacts/sample_investigation.txt", 175))       # find the intrusion (live)
-    emit(scene_caption("It finds the attack", ["Compromised account, attacker source, lateral movement, exfiltration —", "each claim traced to a real Splunk result."], 85, GREEN))
-    emit(scene_caption("…and blocks the guesses", ["Claims the data can't support are BLOCKED — no hallucinations reach you."], 75, RED))
-    emit(scene_caption("Clear reporting — MITRE & risk", ["Ranked worst-first, mapped to ATT&CK, with how to fix each one."], 72, GREEN))
-    emit(image_scene("reports/incident_report.png", 175, pan=True))
-    emit(scene_caption("Universal & multi-cloud", ["39 behavioural detectors — full ATT&CK kill chain across AWS, Azure, GCP,", "endpoint, identity & network. No hardcoded IOCs: it works anywhere."], 85, BLUE))
-    emit(scroll("artifacts/sample_hunt.txt", 120))
-    emit(scene_caption("In one sentence", ["The AI does the thinking. The code checks the facts.", "Nothing made-up ever reaches your report."], 105, GREEN))
-    emit(scene_caption("Code checks the AI.", ["SOC Sentinel — agentic SOC analysis you can trust.", "github.com/3sk1nt4n/SOC-Sentinel-Splunk"], 80))
+    emit(scene_caption("Run it", ["Claude investigates Splunk live through the MCP Server."], D(55), BLUE))
+    emit(scroll("artifacts/sample_investigation.txt", D(190)))    # find the intrusion (live)
+    emit(scene_caption("It finds the attack", ["Compromised account, attacker source, lateral movement, exfiltration —", "each claim traced to a real Splunk result."], D(90), GREEN))
+    emit(scene_caption("…and blocks the guesses", ["Claims the data can't support are BLOCKED — no hallucinations reach you."], D(80), RED))
+    emit(scene_caption("Clear reporting — MITRE & risk", ["Ranked worst-first, mapped to ATT&CK, with how to fix each one."], D(78), GREEN))
+    emit(image_scene("reports/incident_report.png", D(200), pan=True))
+    emit(scene_caption("Universal & multi-cloud", ["40+ behavioural detectors — full ATT&CK kill chain across AWS, Azure, GCP,", "endpoint, identity & network. No hardcoded IOCs: it works anywhere."], D(90), BLUE))
+    emit(scroll("artifacts/sample_hunt.txt", D(150)))
+    emit(scene_caption("In one sentence", ["The AI does the thinking. The code checks the facts.", "Nothing made-up ever reaches your report."], D(115), GREEN))
+    emit(scene_caption("Code checks the AI.", ["SOC Sentinel — agentic SOC analysis you can trust.", "github.com/3sk1nt4n/SOC-Sentinel-Splunk"], D(85)))
 
     print("frames:", _n[0])
     subprocess.run(["ffmpeg", "-y", "-framerate", str(FPS), "-i", os.path.join(FRAMEDIR, "f%05d.png"),
