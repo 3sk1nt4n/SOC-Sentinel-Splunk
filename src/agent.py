@@ -18,11 +18,13 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 import urllib.error
 import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from api_key import resolve_key  # noqa: E402
 from config import load_env  # noqa: E402
 from finding_validator import validate_finding  # noqa: E402
 from splunk_mcp import SplunkMCP, SplunkMCPError  # noqa: E402
@@ -52,13 +54,16 @@ rows; unsupported claims are dropped, so do not pad."""
 # --------------------------------------------------------------------------
 # Anthropic Messages API (tool-use loop)
 # --------------------------------------------------------------------------
+_RESOLVED_KEY: str | None = None
+
+
 def _api_key() -> str:
-    cfg = load_env()
-    key = os.environ.get("ANTHROPIC_API_KEY") or cfg.get("ANTHROPIC_API_KEY")
-    if not key:
-        raise RuntimeError(
-            "ANTHROPIC_API_KEY not set (env or .env). Needed for the live agent loop.")
-    return key
+    """Resolve once via env -> .env -> API_KEY.txt -> hidden prompt (ported from Ensemble)."""
+    global _RESOLVED_KEY
+    if _RESOLVED_KEY is None:
+        _RESOLVED_KEY, src = resolve_key()
+        print(f"🔑 Anthropic API key loaded from: {src}")
+    return _RESOLVED_KEY
 
 
 def _anthropic(messages, tools, *, model, max_tokens=2048):
@@ -87,6 +92,13 @@ def tool_specs_from_mcp(mcp: SplunkMCP) -> list[dict]:
             "input_schema": t.get("inputSchema") or {"type": "object", "properties": {}},
         })
     return specs
+
+
+def _infer_sourcetype(spl: str) -> str | None:
+    """If a search pins exactly one sourcetype, return it so its rows can be
+    tagged for Layer 2 corroboration (independent-source counting)."""
+    sts = set(re.findall(r'sourcetype\s*=\s*"?([A-Za-z0-9:_\-]+)"?', spl or ""))
+    return next(iter(sts)) if len(sts) == 1 else None
 
 
 def _extract_findings(text: str) -> list[dict]:
@@ -142,7 +154,13 @@ def run_investigation(question: str, *, model: str = DEFAULT_MODEL,
             try:
                 out = mcp.call_tool(name, args)
                 rows = out.get("results", []) if isinstance(out, dict) else []
-                evidence_rows.extend(r for r in rows if isinstance(r, dict))
+                # Tag rows with their sourcetype (inferred from the SPL when the
+                # search pins one) so Layer 2 corroboration can count sources.
+                st = _infer_sourcetype(args.get("query", "")) if name == "splunk_run_query" else None
+                for r in rows:
+                    if isinstance(r, dict):
+                        evidence_rows.append(
+                            {**r, "sourcetype": st} if st and "sourcetype" not in r else r)
                 audit.append({"tool": name, "args": args, "rows": len(rows)})
                 payload = json.dumps(out)[:6000]
             except SplunkMCPError as e:
@@ -163,44 +181,51 @@ def run_investigation(question: str, *, model: str = DEFAULT_MODEL,
 # Deterministic proof of the gate (REAL Splunk data, NO LLM, NO key)
 # --------------------------------------------------------------------------
 def demo_validator_gate() -> dict:
-    """Run two real Splunk MCP queries, then push one TRUE finding and one
-    HALLUCINATED finding through the validator. Proves code, not the model,
-    decides what is 'confirmed'. Runnable with zero network beyond localhost."""
+    """Deterministic proof of the 3-layer gate on REAL security data (index=soc_demo),
+    NO LLM, NO key. Gathers evidence across independent sourcetypes, then runs one
+    TRUE finding (multi-source corroborated) and one HALLUCINATED finding through the
+    validator. Run `python3 src/seed_demo_index.py` first to populate soc_demo."""
     mcp = SplunkMCP()
     mcp.initialize()
 
-    # Real evidence pulled live through the Splunk MCP Server.
-    rows = mcp.run_query(
-        "search index=_internal | head 200 | stats count by sourcetype | sort -count | head 8")
-    print(f"\n📡 Splunk MCP Server returned {len(rows)} real rows. Sample:")
-    for r in rows[:3]:
+    # Evidence for the same external attacker across TWO independent sourcetypes.
+    auth = mcp.run_query("search index=soc_demo sourcetype=linux_secure action=failure "
+                         "src_ip=203.0.113.66 | stats count by src_ip user sourcetype")
+    web = mcp.run_query("search index=soc_demo sourcetype=access_combined status=403 "
+                        "src_ip=203.0.113.66 | stats count by src_ip uri sourcetype")
+    evidence = auth + web
+    n_src = len({r.get("sourcetype") for r in evidence if r.get("sourcetype")})
+    print(f"\n📡 Gathered {len(evidence)} evidence rows via the Splunk MCP Server "
+          f"across {n_src} independent sourcetype(s).")
+    for r in evidence[:4]:
         print("   ", r)
-    if not rows:
-        print("   (no rows — is index=_internal populated?)")
+    if not evidence:
+        print("   (no rows — run: python3 src/seed_demo_index.py)")
         return {}
 
-    top = rows[0]                       # a value we genuinely observed
     true_finding = {
-        "id": "F1", "title": "High-volume internal sourcetype observed",
-        "claims": [{"field": "sourcetype", "value": top.get("sourcetype")}],
+        "id": "F1", "title": "External 203.0.113.66 ran a brute-force + web attack",
+        "claims": [{"field": "src_ip", "value": "203.0.113.66"}],
     }
     fake_finding = {
-        "id": "F2", "title": "Beacon to attacker C2 (model-invented)",
-        "claims": [{"field": "sourcetype", "value": "evil:attacker:c2:beacon"}],
+        "id": "F2", "title": "C2 beacon to 8.8.8.8 (model-invented)",
+        "claims": [{"field": "dest_ip", "value": "8.8.8.8"}],
     }
 
-    print("\n🔒 Validator gate (code checks the claims against real Splunk rows):")
+    print("\n🔒 3-layer trust pipeline (code checks the AI):")
     out = []
     for f in (true_finding, fake_finding):
-        v = validate_finding(f, rows)
+        v = validate_finding(f, evidence)
         out.append(v)
-        mark = "✅ CONFIRMED" if v["disposition"] == "confirmed" else "🚫 NOT CONFIRMED"
-        print(f"  {mark}: {f['title']}")
-        for line in v["trace"]:
-            print(f"        {line}")
-    print("\n→ The invented C2 finding cannot reach 'confirmed' — it never matched a "
-          "Splunk row. That gate is what stops AI hallucinations reaching the report.")
-    return {"validated": out, "evidence_rows": len(rows)}
+        L = v["layers"]
+        mark = "✅ CONFIRMED" if v["disposition"] == "confirmed" else "🚫 REJECTED"
+        print(f"\n  {mark}  [{v['confidence']}]  {f['title']}")
+        print(f"     L1 trace gate:    {L['layer1_trace']['summary']}")
+        print(f"     L2 corroboration: {L['layer2_corroboration']['summary']}")
+        print(f"     L3 calibration:   confidence={v['confidence']}  ({L['layer3_calibration']['rule']})")
+    print("\n→ The invented beacon cannot reach 'confirmed' — its dest_ip never appeared "
+          "in a Splunk row. That gate is what stops AI hallucinations reaching the report.")
+    return {"validated": out, "evidence_rows": len(evidence)}
 
 
 def _print_report(result: dict) -> None:
@@ -214,22 +239,31 @@ def _print_report(result: dict) -> None:
     review = [f for f in result["findings"] if f["disposition"] != "confirmed"]
     print(f"\n✅ Confirmed (every claim traced to Splunk): {len(confirmed)}")
     for f in confirmed:
-        print(f"   - {f['title']}")
+        l2 = f["layers"]["layer2_corroboration"]["summary"]
+        print(f"   - [{f['confidence']}] {f['title']}")
+        print(f"        corroboration: {l2}")
         for line in f["trace"]:
             print(f"        {line}")
-    print(f"\n🚫 Needs review / unsupported claims dropped: {len(review)}")
+    print(f"\n🚫 Needs review / rejected (unsupported claims dropped): {len(review)}")
     for f in review:
-        print(f"   - {f['title']}")
+        print(f"   - [{f['disposition']}] {f['title']}")
         for line in f["trace"]:
             print(f"        {line}")
+
+
+def _have_key() -> bool:
+    try:
+        resolve_key(interactive=False)
+        return True
+    except RuntimeError:
+        return False
 
 
 if __name__ == "__main__":
-    if "--demo" in sys.argv or not (os.environ.get("ANTHROPIC_API_KEY")
-                                    or load_env().get("ANTHROPIC_API_KEY")):
-        print("Running deterministic validator-gate demo (no API key needed)…")
+    if "--demo" in sys.argv or not (_have_key() or sys.stdin.isatty()):
+        print("Running deterministic 3-layer gate demo on index=soc_demo (no API key needed)…")
         demo_validator_gate()
     else:
         q = " ".join(a for a in sys.argv[1:] if not a.startswith("-")) or \
-            "Which sourcetypes in index=_internal show errors in the last 24h?"
+            "Investigate suspicious authentication and outbound network activity in index=soc_demo over the last 24h."
         _print_report(run_investigation(q))
