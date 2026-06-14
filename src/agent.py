@@ -71,11 +71,61 @@ def _api_key() -> str:
     return _RESOLVED_KEY
 
 
-def _anthropic(messages, tools, *, model, max_tokens=2048):
-    payload = {"model": model, "max_tokens": max_tokens,
-               "system": SYSTEM_PROMPT, "messages": messages}
+# Anthropic per-Mtok pricing: (input, output, cache_write, cache_read). Cache read = 10%.
+PRICING = {
+    "claude-haiku-4-5-20251001": (1.0, 5.0, 1.25, 0.10),
+    "claude-haiku-4-5": (1.0, 5.0, 1.25, 0.10),
+    "claude-sonnet-4-6": (3.0, 15.0, 3.75, 0.30),
+    "claude-opus-4-8": (15.0, 75.0, 18.75, 1.50),
+}
+_USAGE = {"input": 0, "output": 0, "cache_read": 0, "cache_write": 0, "calls": 0}
+
+
+def _reset_usage():
+    for k in _USAGE:
+        _USAGE[k] = 0
+
+
+def _add_usage(u):
+    _USAGE["input"] += u.get("input_tokens", 0)
+    _USAGE["output"] += u.get("output_tokens", 0)
+    _USAGE["cache_read"] += u.get("cache_read_input_tokens", 0)
+    _USAGE["cache_write"] += u.get("cache_creation_input_tokens", 0)
+    _USAGE["calls"] += 1
+
+
+def _cost(model) -> float:
+    pi, po, pw, pr = PRICING.get(model, PRICING["claude-haiku-4-5"])
+    return (_USAGE["input"] * pi + _USAGE["output"] * po
+            + _USAGE["cache_write"] * pw + _USAGE["cache_read"] * pr) / 1e6
+
+
+def _mark_message_cache(messages):
+    """Move the single message-level cache breakpoint to the last block of the last
+    turn, so the whole growing conversation prefix is cached (read at 10%)."""
+    for m in messages:
+        c = m.get("content")
+        if isinstance(c, list):
+            for b in c:
+                if isinstance(b, dict):
+                    b.pop("cache_control", None)
+    for m in reversed(messages):              # mark the last list-content turn
+        c = m.get("content")
+        if isinstance(c, list) and c and isinstance(c[-1], dict):
+            c[-1]["cache_control"] = {"type": "ephemeral"}
+            break
+
+
+def _anthropic(messages, tools, *, model, max_tokens=2048, cache=True):
+    system = [{"type": "text", "text": SYSTEM_PROMPT}]
+    if cache:                                   # cache the static system prompt …
+        system[0]["cache_control"] = {"type": "ephemeral"}
+    payload = {"model": model, "max_tokens": max_tokens, "system": system, "messages": messages}
     if tools:  # omit when empty so the model is forced to answer in text (finalization)
-        payload["tools"] = tools
+        t = [dict(x) for x in tools]
+        if cache:                               # … and the (static) tool definitions
+            t[-1] = {**t[-1], "cache_control": {"type": "ephemeral"}}
+        payload["tools"] = t
     body = json.dumps(payload).encode()
     req = urllib.request.Request(ANTHROPIC_URL, data=body, method="POST")
     req.add_header("x-api-key", _api_key())
@@ -83,9 +133,11 @@ def _anthropic(messages, tools, *, model, max_tokens=2048):
     req.add_header("content-type", "application/json")
     try:
         with urllib.request.urlopen(req, timeout=120) as r:
-            return json.loads(r.read().decode())
+            resp = json.loads(r.read().decode())
     except urllib.error.HTTPError as e:
         raise RuntimeError(f"Anthropic API HTTP {e.code}: {e.read().decode()[:400]}")
+    _add_usage(resp.get("usage", {}))
+    return resp
 
 
 def tool_specs_from_mcp(mcp: SplunkMCP) -> list[dict]:
@@ -136,12 +188,15 @@ def run_investigation(question: str, *, model: str = DEFAULT_MODEL,
     tools = tool_specs_from_mcp(mcp)
     print(f"🤖 SOC Sentinel agent — model: {model} · {len(tools)} Splunk MCP tools available")
 
+    _reset_usage()
     messages = [{"role": "user", "content": question}]
     evidence_rows: list[dict] = []     # union of every result row Splunk returned
     audit: list[dict] = []             # every tool call (for the trace)
+    tool_cache: dict = {}              # memoize identical MCP calls within a run
     final_text = ""
 
     for step in range(max_steps):
+        _mark_message_cache(messages)
         resp = _anthropic(messages, tools, model=model)
         blocks = resp.get("content", [])
         messages.append({"role": "assistant", "content": blocks})
@@ -161,8 +216,15 @@ def run_investigation(question: str, *, model: str = DEFAULT_MODEL,
             name, args = tu["name"], tu.get("input", {})
             if verbose:
                 print(f"🔧 MCP call: {name}({json.dumps(args)[:160]})")
+            ck = name + json.dumps(args, sort_keys=True)
             try:
-                out = mcp.call_tool(name, args)
+                if ck in tool_cache:                       # result memoization
+                    out = tool_cache[ck]
+                    if verbose:
+                        print("    ↳ cached (identical query already run this investigation)")
+                else:
+                    out = mcp.call_tool(name, args)
+                    tool_cache[ck] = out
                 rows = out.get("results", []) if isinstance(out, dict) else []
                 # Tag rows with their sourcetype (inferred from the SPL when the
                 # search pins one) so Layer 2 corroboration can count sources.
@@ -187,6 +249,7 @@ def run_investigation(question: str, *, model: str = DEFAULT_MODEL,
             "Stop investigating now. Using ONLY the evidence already gathered, output the "
             "findings JSON block exactly as specified in your instructions — a single ```json "
             "fenced block and nothing else."})
+        _mark_message_cache(messages)
         resp = _anthropic(messages, [], model=model, max_tokens=4096)
         for b in resp.get("content", []):
             if b.get("type") == "text" and b.get("text", "").strip():
@@ -201,7 +264,15 @@ def run_investigation(question: str, *, model: str = DEFAULT_MODEL,
         v["technique"] = f.get("technique")   # carry MITRE through the validator
         v["tactic"] = f.get("tactic")
         validated.append(v)
-    return {"question": question, "findings": validated,
+
+    cost = _cost(model)
+    usage = {**_USAGE, "cost_usd": round(cost, 4)}
+    if verbose:
+        cached, total_in = _USAGE["cache_read"], _USAGE["input"] + _USAGE["cache_read"] + _USAGE["cache_write"]
+        pct = (100 * cached / total_in) if total_in else 0
+        print(f"\n💰 {model}: {_USAGE['calls']} calls · in {_USAGE['input']:,} + "
+              f"cache_read {cached:,} ({pct:.0f}% cached) + out {_USAGE['output']:,} tok · ${cost:.4f}")
+    return {"question": question, "findings": validated, "usage": usage,
             "audit": audit, "evidence_row_count": len(evidence_rows),
             "raw_findings": findings}
 

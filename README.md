@@ -144,6 +144,10 @@ masquerade, anti-forensics (secure-wipe), and ransomware prep. A sample:
 validates each hit; corroboration across independent sourcetypes is what elevates
 the real attacker to HIGH and leaves single-source noise at LOW.
 
+See the **[top-5 advanced attacks it finds](docs/CASES.md)** and the
+**[cost & caching analysis](docs/COST.md)** (prompt caching + tool memoization; the
+deterministic `--hunt` runs the same 42 detectors for **$0**, a live agent run is pennies).
+
 ## Reporting
 
 Every hunt/investigation produces an analyst-ready **incident report** (Markdown +
