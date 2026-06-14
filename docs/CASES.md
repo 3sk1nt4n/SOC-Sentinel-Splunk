@@ -23,6 +23,8 @@ privileges, dumps credentials, runs discovery, then moves laterally across the e
 **Why it's high-confidence:** the same compromised account appears across `linux_secure`,
 `windows:security`, `cisco:asa` and Sysmon → **3+ independent sources → HIGH risk**.
 
+➡️ **[See this case run step by step on real data → `WALKTHROUGH.md`](WALKTHROUGH.md)**
+
 ## 2 · Memory-injection / process hollowing (fileless, "deep memory" footprint)
 **Story:** a malicious document spawns encoded PowerShell that injects into a live
 process, hollows a system binary, and reflectively loads a DLL — fileless post-exploitation.
