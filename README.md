@@ -68,7 +68,7 @@ the `⟦ AI ✦ ⟧` brackets* — in **[`docs/PIPELINE.md`](docs/PIPELINE.md)**
 - **Cost & caching:** the agent uses **Anthropic prompt caching** (the static system prompt +
   tool definitions + a moving conversation-prefix breakpoint each turn are read at 10%) plus
   **tool-result memoization** (identical SPL isn't re-searched) — cutting the dominant token
-  cost ~2–4×. It tracks and prints the real token usage + `$` per run. The deterministic
+  cost ~2–4×. A **measured** full Haiku investigation cost **$0.0886 at 76% cache-hit** (≈9 cents); the agent prints the real token usage + `$` per run. The deterministic
   `--hunt` runs all 42 detectors for **$0**. Details: **[`docs/COST.md`](docs/COST.md)**.
 
 See [`architecture_diagram.md`](architecture_diagram.md) for the full data flow.

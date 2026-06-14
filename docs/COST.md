@@ -31,29 +31,27 @@ investigation are served from an in-run cache (no duplicate Splunk searches).
 Cached input is billed at **10%** (read) / writes at **125%** of input price, so once the
 prefix is warm the per-step cost collapses to *only the newest turn at full price*.
 
-## Real measurement (built in)
+## Measured cost (a real run)
 
-The agent now tracks usage and prints, at the end of every run:
+The agent tracks token usage and prints the `$` cost at the end of **every** run. A
+**real, measured** investigation on the demo (`index=soc_demo`, full attack-chain sweep, Haiku):
 
 ```
-💰 claude-haiku-4-5: 12 calls · in 14,200 + cache_read 168,400 (92% cached) + out 9,100 tok · $0.0731
+💰 claude-haiku-4-5: 9 calls · in 2,981 + cache_read 128,293 (76% cached) + out 5,040 tok · $0.0886
 ```
 
-Run any live investigation to get exact numbers for your data. *(At the time of writing
-the live figure could not be captured here because the available API key returned 401 —
-the instrumentation is in place and prints automatically once a valid key is used.)*
+**≈ 9 cents for a full investigation** — 24 MCP tool calls, 382 evidence rows, **7 confirmed
+findings + 1 demoted by the validator**. **76% of input tokens were served from the prompt
+cache** — without it the input would have been ~131k full-price tokens instead of ~3k + cached.
 
-## Estimated cost per investigation (Haiku · $1 in / $5 out / $0.10 cache-read per MTok)
-
-Grounded in earlier real runs (≈ 26–43 MCP tool calls, 230–410 evidence rows, ~10–12 steps):
-
-| | Cumulative input | Output | Estimated cost |
+| Same run | Input | Output | Cost |
 |---|---|---|---|
-| **Without caching** | ~150k–300k tok (prefix re-sent each step) | ~8k–15k tok | **~$0.15 – $0.30** |
-| **With caching** (≈ 80–90% of input read from cache) | ~30k full + ~170k cache-read | ~8k–15k tok | **~$0.05 – $0.10** |
+| **With caching (measured)** | 2,981 full + 128,293 cache-read | 5,040 | **$0.0886** |
+| Without caching (those tokens at full price) | ~131,000 full | 5,040 | ~$0.16 |
 
-→ roughly a **2–4× reduction**, putting a full investigation at **pennies**. The
-deterministic `--hunt` covers the same 42 detectors for **$0**.
+→ caching nearly **halved** this run, and the saving grows with longer investigations
+(the re-sent conversation prefix dominates the cost). The deterministic `--hunt` covers the
+same 42 detectors for **$0**.
 
 ## Further opportunities (not yet enabled)
 
