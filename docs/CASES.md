@@ -1,7 +1,7 @@
 # Top-5 advanced attacks SOC Sentinel finds
 
 Each case is detected by **universal behaviour** (no hardcoded IOCs), mapped to MITRE
-ATT&CK, and — crucially — every claim is **traced to a real Splunk row** before it's
+ATT&CK, and - crucially - every claim is **traced to a real Splunk row** before it's
 reported, with confidence set by how many *independent data sources* corroborate it.
 All of these fire on the reproducible demo (`python3 src/seed_demo_index.py --reset`);
 the detectors live in `src/detections.py`.
@@ -27,7 +27,7 @@ privileges, dumps credentials, runs discovery, then moves laterally across the e
 
 ## 2 · Memory-injection / process hollowing (fileless, "deep memory" footprint)
 **Story:** a malicious document spawns encoded PowerShell that injects into a live
-process, hollows a system binary, and reflectively loads a DLL — fileless post-exploitation.
+process, hollows a system binary, and reflectively loads a DLL - fileless post-exploitation.
 
 | Signal | Detector | MITRE |
 |---|---|---|
@@ -38,7 +38,7 @@ process, hollows a system binary, and reflectively loads a DLL — fileless post
 | Reflective DLL | `reflective_dll_load` (unsigned DLL from temp) | T1055.001 |
 | LSASS access | `lsass_access` | T1003.001 |
 
-> These are the **log-native equivalents** of Volatility `malfind`/`hollowprocess` — the
+> These are the **log-native equivalents** of Volatility `malfind`/`hollowprocess` - the
 > *runtime footprint* of injection/hollowing as it lands in Sysmon, which is how a SOC
 > catches these without a memory image.
 
@@ -52,7 +52,7 @@ runs a system binary from a non-standard path to hide.
 | System-process masquerade | `process_masquerade` (svchost/lsass from non-System32) | T1036.005 |
 
 ## 4 · Cloud account takeover & cross-cloud abuse (AWS + Azure + GCP)
-**Story:** one identity is compromised and abused across all three clouds — risky
+**Story:** one identity is compromised and abused across all three clouds - risky
 sign-ins, privilege escalation, backdoor credentials, public buckets, logging disabled.
 
 | Cloud | Detectors | MITRE |
@@ -82,4 +82,4 @@ its tools, clears the logs, then deletes shadow copies to set up ransomware.
 
 In every case, the AI proposes the finding and **code checks it**: anything the data
 can't support is blocked (the report's "Blocked by the validator" section), and
-confidence is earned by corroboration — so what reaches the analyst is trustworthy.
+confidence is earned by corroboration - so what reaches the analyst is trustworthy.

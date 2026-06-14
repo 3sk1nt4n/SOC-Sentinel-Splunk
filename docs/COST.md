@@ -9,23 +9,23 @@
 | live agent (`run_investigation`) | Claude drives the MCP tools + the validator | a few **cents** per investigation (Haiku) |
 
 The Splunk side is free (it's your Splunk); searches are **read-only oneshot** queries.
-Only the *live agent* spends on the Anthropic API — and it's locked to **Haiku** for cost.
+Only the *live agent* spends on the Anthropic API - and it's locked to **Haiku** for cost.
 
 ## Where the agent's tokens go
 
 The agent is a tool-use loop: each step re-sends the **system prompt + tool definitions +
-the whole conversation so far** (which grows as tool results pile up). Over ~10–12 steps
-that re-sent prefix is the dominant cost — it's *mostly the same bytes every step*. That
+the whole conversation so far** (which grows as tool results pile up). Over ~10-12 steps
+that re-sent prefix is the dominant cost - it's *mostly the same bytes every step*. That
 is exactly what caching removes.
 
-## Caching — implemented
+## Caching - implemented
 
-**1 · Prompt caching (Anthropic `cache_control: ephemeral`)** — `src/agent.py`:
+**1 · Prompt caching (Anthropic `cache_control: ephemeral`)** - `src/agent.py`:
 - the **system prompt** and the **tool definitions** (static, re-sent every step) are cached;
 - the **growing conversation prefix** gets a moving cache breakpoint each turn, so every
   step re-reads the prior turns at **10% of input price** instead of full price.
 
-**2 · Tool-result memoization** — identical `splunk_run_query` calls within one
+**2 · Tool-result memoization** - identical `splunk_run_query` calls within one
 investigation are served from an in-run cache (no duplicate Splunk searches).
 
 Cached input is billed at **10%** (read) / writes at **125%** of input price, so once the
@@ -40,9 +40,9 @@ The agent tracks token usage and prints the `$` cost at the end of **every** run
 💰 claude-haiku-4-5: 9 calls · in 2,981 + cache_read 128,293 (76% cached) + out 5,040 tok · $0.0886
 ```
 
-**≈ 9 cents for a full investigation** — 24 MCP tool calls, 382 evidence rows, **7 confirmed
+**≈ 9 cents for a full investigation** - 24 MCP tool calls, 382 evidence rows, **7 confirmed
 findings + 1 demoted by the validator**. **76% of input tokens were served from the prompt
-cache** — without it the input would have been ~131k full-price tokens instead of ~3k + cached.
+cache** - without it the input would have been ~131k full-price tokens instead of ~3k + cached.
 
 | Same run | Input | Output | Cost |
 |---|---|---|---|

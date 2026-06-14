@@ -1,6 +1,6 @@
-# SOC Sentinel — Devpost submission
+# SOC Sentinel - Devpost submission
 
-> **An agentic SOC analyst for Splunk that you can actually trust — because code, not the model, decides what's confirmed.**
+> **An agentic SOC analyst for Splunk that you can actually trust - because code, not the model, decides what's confirmed.**
 
 **Track:** Security · **Splunk AI capability used at runtime:** the Splunk MCP Server (Splunkbase app 7931)
 
@@ -18,7 +18,7 @@ the AI can't prove is blocked before it reaches the analyst.
 ## Inspiration
 
 We previously built an anti-hallucination DFIR agent for the SANS "Find Evil!" hackathon.
-The single hardest, most valuable thing there was making an autonomous agent **trustworthy** —
+The single hardest, most valuable thing there was making an autonomous agent **trustworthy** -
 provably grounded in evidence, never narrating a plausible story the data doesn't support.
 Splunk's Agentic Ops hackathon is the perfect home for that idea: agentic AI over SIEM data
 is enormously useful *and* enormously risky, and the thing standing between "cool demo" and
@@ -28,45 +28,45 @@ is enormously useful *and* enormously risky, and the thing standing between "coo
 
 1. An analyst asks a question in plain English.
 2. **Claude** plans the investigation and runs SPL searches **through the Splunk MCP Server**
-   (typed tools, read-only, no shell) — `splunk_run_query`, `splunk_get_indexes`, etc.
+   (typed tools, read-only, no shell) - `splunk_run_query`, `splunk_get_indexes`, etc.
 3. Claude drafts findings, each with explicit claims (`field = value`).
 4. A **3-layer validator** gates every claim:
-   - **L1 Trace** — the value must appear in a real Splunk result row, or it's dropped.
-   - **L2 Corroboration** — how many independent sourcetypes back it.
-   - **L3 Calibration** — confidence: 3+ sources = HIGH, 2 = MEDIUM, 1 = LOW.
+   - **L1 Trace** - the value must appear in a real Splunk result row, or it's dropped.
+   - **L2 Corroboration** - how many independent sourcetypes back it.
+   - **L3 Calibration** - confidence: 3+ sources = HIGH, 2 = MEDIUM, 1 = LOW.
 5. The analyst gets a **risk-ranked incident report** (HTML + Markdown): executive summary,
    MITRE ATT&CK matrix, findings table, per-technique remediation, and **the exact SPL that
-   reproduces each finding**. Unsupported claims appear in a "Blocked by the validator" section —
+   reproduces each finding**. Unsupported claims appear in a "Blocked by the validator" section -
    proof the gate is working.
 
 It ships two ways to run:
-- **`--hunt`** — a universal, deterministic detection pack (no API key needed).
-- **live agent** — Claude drives the whole investigation autonomously.
+- **`--hunt`** - a universal, deterministic detection pack (no API key needed).
+- **live agent** - Claude drives the whole investigation autonomously.
 
-## How AI + Splunk are used (at runtime — not mocked, not planned)
+## How AI + Splunk are used (at runtime - not mocked, not planned)
 
 - **Splunk AI capability:** the **Splunk MCP Server** is the agent's only channel to Splunk.
   Every search is a real `tools/call` over JSON-RPC to `/services/mcp`. Verified live: a Haiku
   investigation made **30+ MCP tool calls** and gathered **hundreds of real result rows**.
 - **Reasoning:** Claude (Anthropic) forms hypotheses, chooses searches, and proposes findings.
-- **The guardrail:** a deterministic Python validator — *the AI never gets to mark its own
+- **The guardrail:** a deterministic Python validator - *the AI never gets to mark its own
   homework.*
 
 ## How we built it
 
-- **`splunk_mcp.py`** — a stdlib MCP client: mints an `aud=mcp` token via `/services/mcp_token`,
+- **`splunk_mcp.py`** - a stdlib MCP client: mints an `aud=mcp` token via `/services/mcp_token`,
   speaks MCP Streamable-HTTP JSON-RPC (`initialize` / `tools/list` / `tools/call`).
-- **`finding_validator.py`** — the 3-layer trust pipeline.
-- **`detections.py`** — **42 universal behavioural detectors across 7 domains** (identity,
+- **`finding_validator.py`** - the 3-layer trust pipeline.
+- **`detections.py`** - **42 universal behavioural detectors across 7 domains** (identity,
   endpoint, network, AWS, Azure, GCP) mapped to MITRE ATT&CK. Every detector finds *behaviour
-  or structure* — never a hardcoded IOC — so it survives a held-out environment (enforced by a
+  or structure* - never a hardcoded IOC - so it survives a held-out environment (enforced by a
   "no answer keys" test).
-- **`agent.py`** — the Claude tool-use loop (with **Anthropic prompt caching** of the
-  system prompt + tool defs + conversation prefix, and tool-result memoization — ~2–4× cheaper)
+- **`agent.py`** - the Claude tool-use loop (with **Anthropic prompt caching** of the
+  system prompt + tool defs + conversation prefix, and tool-result memoization - ~2-4× cheaper)
   + the deterministic gate demo. A **measured** full investigation cost **$0.0886 at 76%
   cache-hit** (≈9 cents); it tracks and prints real token usage + $ per run.
-- **`report.py`** — one universal reporting engine (risk-ranked HTML/Markdown) for both paths.
-- **`seed_demo_index.py`** — a reproducible 6-sourcetype ATT&CK breach so judges can run the
+- **`report.py`** - one universal reporting engine (risk-ranked HTML/Markdown) for both paths.
+- **`seed_demo_index.py`** - a reproducible 6-sourcetype ATT&CK breach so judges can run the
   whole demo in two minutes without downloading a multi-GB dataset.
 
 ## Challenges
@@ -74,22 +74,22 @@ It ships two ways to run:
 - **Splunk MCP Server auth:** `tools/call` requires a token whose `aud` claim is `mcp`; a plain
   session key is rejected. We reverse-engineered the app and mint the right token via its own
   endpoint.
-- **Field extraction:** a `WinEventLog:*` *source* silently disables key=value auto-extraction —
+- **Field extraction:** a `WinEventLog:*` *source* silently disables key=value auto-extraction -
   diagnosed and fixed with neutral source names.
-- **Keeping it honest:** the agent that's *so* thorough it forgets to conclude — solved with a
+- **Keeping it honest:** the agent that's *so* thorough it forgets to conclude - solved with a
   forced findings-finalization turn, then gated by the validator.
 
 ## Accomplishments
 
 - A working, **live** agentic Splunk integration (the #1 thing most entries fail).
 - A genuinely **novel, cross-track** contribution: an auditable anti-hallucination trust layer
-  for agentic Splunk — useful for Security *and* as a reusable Platform/Dev-Ex harness.
+  for agentic Splunk - useful for Security *and* as a reusable Platform/Dev-Ex harness.
 - **Universal** detection + reporting: no answer keys, MITRE-mapped, multi-cloud.
 
 ## What we learned
 
 Trust is the product. An agent that's right 95% of the time is unusable in a SOC if you can't
-tell *which* 95% — so we made every claim checkable by code and every report traceable to SPL.
+tell *which* 95% - so we made every claim checkable by code and every report traceable to SPL.
 
 ## What's next
 
@@ -112,8 +112,8 @@ Protocol · Claude (Anthropic) · MITRE ATT&CK · graphviz.
 
 ## Compliance checklist
 
-- ✅ Splunk AI used **at runtime** — live Splunk MCP Server tool calls (not mocked/planned)
+- ✅ Splunk AI used **at runtime** - live Splunk MCP Server tool calls (not mocked/planned)
 - ✅ Architecture diagram included (`docs/architecture.png`)
-- ✅ New project — all commits during the hackathon window
-- ✅ OSI license — MIT (`LICENSE`, detectable in repo About)
+- ✅ New project - all commits during the hackathon window
+- ✅ OSI license - MIT (`LICENSE`, detectable in repo About)
 - ✅ Public, reachable repo
