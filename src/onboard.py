@@ -1,0 +1,210 @@
+#!/usr/bin/env python3
+"""SOC Sentinel — one-command onboarding.
+
+A fancy, colorful walkthrough (in the spirit of Find Evil's ./findevil.sh):
+  glowy banner -> environment health cards -> hidden API-key paste with LIVE
+  verification -> pick a mode -> run. No flags to remember; just `./soc-sentinel.sh`.
+"""
+from __future__ import annotations
+
+import getpass
+import json
+import os
+import subprocess
+import sys
+import urllib.error
+import urllib.request
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(HERE)
+sys.path.insert(0, HERE)
+
+R = "\x1b[0m"; B = "\x1b[1m"; DIM = "\x1b[2m"
+GRN = "\x1b[38;5;71m"; RED = "\x1b[38;5;174m"; YEL = "\x1b[38;5;179m"
+BLU = "\x1b[38;5;75m"; CYN = "\x1b[38;5;80m"; MAG = "\x1b[38;5;141m"; GRY = "\x1b[38;5;245m"
+TTY = sys.stdin.isatty() and sys.stdout.isatty()
+
+
+def banner():
+    try:
+        subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "intro.py")], timeout=20)
+    except Exception:
+        print(f"\n{B}{CYN}SOC SENTINEL{R} — agentic SOC analyst you can trust\n")
+
+
+def section(title):
+    print(f"\n{B}{BLU}── {title} {'─' * max(0, 56 - len(title))}{R}")
+
+
+def card(status, label, detail=""):
+    icon = {"ok": f"{GRN}✓{R}", "no": f"{RED}✗{R}", "warn": f"{YEL}●{R}", "info": f"{CYN}•{R}"}[status]
+    print(f"   {icon} {B}{label}{R}{('  ' + DIM + detail + R) if detail else ''}")
+
+
+def ask(prompt, default=""):
+    if not TTY:
+        return default
+    try:
+        a = input(f"   {MAG}?{R} {prompt} ").strip()
+        return a or default
+    except (EOFError, KeyboardInterrupt):
+        return default
+
+
+# ---------------------------------------------------------------- key
+def _looks_real(k):
+    return isinstance(k, str) and k.strip().startswith("sk-ant-") and "..." not in k and len(k.strip()) > 24
+
+
+def _validate_key(key):
+    """One-token live call so we never start a run with a dead key (live verification)."""
+    body = json.dumps({"model": "claude-haiku-4-5-20251001", "max_tokens": 1,
+                       "messages": [{"role": "user", "content": "hi"}]}).encode()
+    req = urllib.request.Request("https://api.anthropic.com/v1/messages", data=body, method="POST")
+    req.add_header("x-api-key", key.strip())
+    req.add_header("anthropic-version", "2023-06-01")
+    req.add_header("content-type", "application/json")
+    try:
+        urllib.request.urlopen(req, timeout=30)
+        return True
+    except urllib.error.HTTPError as e:
+        return False if e.code in (401, 403) else None
+    except Exception:
+        return None
+
+
+def handle_key():
+    """Resolve + LIVE-verify the key; re-prompt (hidden) if missing/rejected. Returns key or None."""
+    from api_key import resolve_key
+    key = src = None
+    try:
+        key, src = resolve_key(interactive=False)
+    except RuntimeError:
+        pass
+    if key:
+        v = _validate_key(key)
+        if v is True:
+            card("ok", "API key", f"loaded from {src} (…{key[-4:]}) — verified live")
+            return key
+        if v is None:
+            card("warn", "API key", f"loaded from {src} (…{key[-4:]}) — couldn't reach Anthropic to verify")
+            return key
+        card("warn", "API key", f"the {src} key was rejected (expired?) — let's enter a fresh one")
+    else:
+        card("info", "API key", "none found — paste one now, or skip for the free $0 hunt")
+    if not TTY:
+        return None
+    for _ in range(3):
+        k = getpass.getpass(f"   {MAG}🔑{R} paste your Anthropic API key (hidden, never shown/saved to git): ").strip()
+        if not k:
+            return None
+        if not _looks_real(k):
+            print(f"   {YEL}that doesn't look like an sk-ant-… key — try again (Enter to skip){R}")
+            continue
+        v = _validate_key(k)
+        if v is True:
+            card("ok", "API key", "verified live ✓")
+            if ask("save it to API_KEY.txt for next time? [Y/n]", "y").lower().startswith("y"):
+                try:
+                    open(os.path.join(ROOT, "API_KEY.txt"), "w").write(k + "\n")
+                    card("ok", "saved", "API_KEY.txt (gitignored)")
+                except OSError:
+                    pass
+            return k
+        print(f"   {RED}that key was rejected by Anthropic — try again (Enter to skip){R}")
+    return None
+
+
+# ---------------------------------------------------------------- env
+def check_env():
+    section("Checking your Splunk")
+    from splunk_mcp import SplunkMCP, SplunkMCPError
+    mcp = SplunkMCP()
+    try:
+        info = mcp.initialize()
+        tools = mcp.list_tools()
+        card("ok", "Splunk MCP Server", f"{(info.get('serverInfo') or {}).get('version','?')} · {len(tools)} typed tools")
+    except SplunkMCPError as e:
+        card("no", "Splunk MCP Server", str(e)[:70])
+        print(f"\n   {RED}Can't reach the MCP Server.{R} Check .env (SPLUNK_HOST/USER/PASSWORD) and that the\n"
+              f"   Splunk MCP Server app is installed. See docs/GETTING_STARTED.md.")
+        return None, 0
+    try:
+        n = int(mcp.run_query("search index=soc_demo earliest=-24h | stats count")[0].get("count", 0))
+    except Exception:
+        n = 0
+    if n:
+        card("ok", "Evidence", f"index=soc_demo · {n} events (last 24h)")
+    else:
+        card("warn", "Evidence", "index=soc_demo is empty")
+        if ask("seed a reproducible demo breach now? [Y/n]", "y").lower().startswith("y"):
+            subprocess.run([sys.executable, os.path.join(HERE, "seed_demo_index.py"), "--reset"])
+            try:
+                n = int(mcp.run_query("search index=soc_demo earliest=-24h | stats count")[0].get("count", 0))
+                card("ok", "Evidence", f"index=soc_demo · {n} events seeded")
+            except Exception:
+                pass
+    return mcp, n
+
+
+# ---------------------------------------------------------------- run
+def run_mode(mode, mcp, key, question):
+    import agent
+    if key:
+        agent._RESOLVED_KEY = key            # use the verified key, bypass the dead env one
+    if mode == "hunt":
+        section("Universal hunt — 42 behavioural detectors (free, no LLM)")
+        from detections import hunt, print_hunt
+        from report import from_hunt, write_reports
+        res = hunt(mcp, "soc_demo")
+        print_hunt(res)
+        p = write_reports(from_hunt(res, "soc_demo"), index="soc_demo", scope_label="Universal hunt")
+        card("ok", "Report", f"{p['html']}")
+    elif mode == "demo":
+        section("Trust-gate demo (free, no LLM)")
+        agent.demo_validator_gate()
+    else:
+        section("Live investigation — Claude over the Splunk MCP Server")
+        from report import from_agent, write_reports
+        res = agent.run_investigation(question)
+        agent._print_report(res)
+        p = write_reports(from_agent(res, "soc_demo"), index="soc_demo", scope_label="Claude investigation")
+        c = (res.get("usage") or {}).get("cost_usd")
+        card("ok", "Report", f"{p['html']}")
+        if c is not None:
+            card("ok", "Cost", f"this investigation: ${c:.4f}")
+
+
+def main():
+    banner()
+    mcp, n = check_env()
+    if mcp is None:
+        sys.exit(1)
+    section("Your AI key")
+    key = handle_key()
+
+    section("What would you like to do?")
+    default = "1" if key else "2"
+    print(f"   {B}1{R}  Investigate with AI   {DIM}(Claude finds the attack · ~pennies on Haiku){R}")
+    print(f"   {B}2{R}  Run the detector hunt {DIM}(42 detectors · free, no key){R}")
+    print(f"   {B}3{R}  Trust-gate demo       {DIM}(see the validator block a hallucination · free){R}")
+    choice = ask(f"choose [1/2/3] (Enter = {default}):", default)
+    mode = {"1": "agent", "2": "hunt", "3": "demo"}.get(choice, "agent" if key else "hunt")
+    if mode == "agent" and not key:
+        card("warn", "no key", "falling back to the free detector hunt")
+        mode = "hunt"
+
+    q = ("Was anything compromised in index=soc_demo in the last 24h? Find the attacker, the "
+         "compromised account, lateral movement, persistence and exfiltration.")
+    if mode == "agent" and TTY:
+        q = ask("what should it investigate? (Enter = default):", q)
+
+    run_mode(mode, mcp, key, q)
+    print(f"\n   {GRN}{B}✓ Done.{R} {DIM}Open reports/incident_report.html for the full risk-ranked report.{R}\n")
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        print(f"\n{DIM}cancelled.{R}")

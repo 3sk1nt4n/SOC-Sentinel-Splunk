@@ -76,6 +76,16 @@ See [`architecture_diagram.md`](architecture_diagram.md) for the full data flow.
 with the **Splunk MCP Server** app installed, and Python 3 (the client/validator are
 **stdlib-only** — no pip needed; the agent loop calls the Anthropic API over stdlib too).
 
+### 🚀 One command (recommended)
+```bash
+./soc-sentinel.sh
+```
+A guided, colorful onboarding: it checks your Splunk + MCP Server, offers to seed the demo,
+takes your Anthropic key at a **hidden prompt with live verification** (no key? it falls back
+to the free hunt), then runs an investigation and prints the report + the run's $ cost.
+
+### …or the individual steps
+
 ```bash
 cp .env.example .env          # set SPLUNK_HOST / SPLUNK_USER / SPLUNK_PASSWORD
 
