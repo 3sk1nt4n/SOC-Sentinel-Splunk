@@ -116,10 +116,26 @@ live in Splunk, through the MCP Server. Nothing is exported.
 **Can the AI break or change my Splunk?** No. The MCP Server is **read-only search**
 only — no writes, no deletes, no shell.
 
-**Why not just let the AI run searches itself?** Because then you'd be trusting the AI
-with credentials and free rein. The MCP Server is a narrow, typed, audited doorway —
-and SOC Sentinel's validator double-checks every answer against your real rows, so a
-made-up finding can't reach your report.
+**Couldn't the AI just call Splunk's REST API directly?** Yes — it technically can
+(this repo even ships `src/splunk_client.py` that does exactly that). MCP isn't about
+*capability*, it's about *architecture*. Calling REST directly means handing an
+autonomous AI your Splunk credentials and broad access — often **admin**, which can
+change config, manage users, or **delete** data. The MCP Server is the safer, better door:
+
+| | AI → Splunk REST directly | AI → Splunk MCP Server |
+|---|---|---|
+| Access | whatever the creds allow (often admin) | a curated **read/search** tool set only |
+| Tool discovery | none — you must prompt-feed the API | `tools/list` — self-describing, model-native |
+| Guardrails | you build them | built in: safe-SPL filter · rate limits · circuit breaker |
+| Auth | your broad token/creds | a scoped `aud=mcp` token, capability-gated |
+| Audit | you build logging | every tool call logged |
+| Portability | bespoke per system | **one protocol** for Splunk *and* any other MCP tool |
+| Maintenance | you maintain the glue | Splunk maintains the server |
+
+For a quick script, REST is fine. For a **trustworthy, least-privilege, auditable
+agent** — and one protocol across many tools — the MCP Server is the right door. And
+SOC Sentinel's validator still double-checks every answer against your real rows, so a
+made-up finding can't reach your report either way.
 
 **Which logs work best?** Anything security-relevant: authentication, firewall/network,
 cloud audit (AWS/Azure/GCP), and endpoint/Sysmon. The 40+ detectors cover all of these.
