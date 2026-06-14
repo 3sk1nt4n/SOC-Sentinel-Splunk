@@ -26,8 +26,8 @@ TTY = sys.stdin.isatty() and sys.stdout.isatty()
 
 
 def banner():
-    try:
-        subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "intro.py")], timeout=20)
+    try:   # --static: one clean frame (random colour scheme), never floods the scrollback
+        subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "intro.py"), "--static"], timeout=20)
     except Exception:
         print(f"\n{B}{CYN}SOC SENTINEL{R} — agentic SOC analyst you can trust\n")
 
@@ -197,7 +197,15 @@ def main():
     q = ("Was anything compromised in index=soc_demo in the last 24h? Find the attacker, the "
          "compromised account, lateral movement, persistence and exfiltration.")
     if mode == "agent" and TTY:
-        q = ask("what should it investigate? (Enter = default):", q)
+        print(f"   {DIM}e.g.  \"find brute force then lateral movement\"  ·  "
+              f"\"any data exfiltration or anti-forensics?\"  ·  \"is account X compromised?\"{R}")
+        qi = ask("describe what to investigate (or press Enter for a full attack-chain sweep):", "")
+        if len(qi.strip()) < 10:                 # guardrail: don't run on junk/typos like "k"
+            if qi.strip():
+                card("info", "too short", "running the full attack-chain sweep instead")
+            # q stays the default
+        else:
+            q = qi
 
     run_mode(mode, mcp, key, q)
     print(f"\n   {GRN}{B}✓ Done.{R} {DIM}Open reports/incident_report.html for the full risk-ranked report.{R}\n")

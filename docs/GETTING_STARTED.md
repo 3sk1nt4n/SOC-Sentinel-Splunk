@@ -108,6 +108,37 @@ finding traces back to a real Splunk search** you can re-run yourself.
 
 ---
 
+## Integrate other log sources & data pools
+
+SOC Sentinel reads **whatever is already in your Splunk** — it doesn't care where the
+logs came from. To bring in more:
+
+- **Already in Splunk?** Nothing to do — point a question or the hunt at that index:
+  `python3 src/agent.py --hunt YOUR_INDEX`. The 40+ detectors match standard fields
+  (auth, firewall, cloud audit, Sysmon/Windows events) across sourcetypes.
+- **Not in Splunk yet?** Ingest it the normal Splunk way — universal forwarders, **HEC**,
+  or a Splunk **Technology Add-on** (AWS/Azure/GCP/Okta/firewall TAs normalise the data
+  into indexes). Once indexed, SOC Sentinel sees it through the same MCP Server. *(That
+  ingestion is Splunk's job — SOC Sentinel only reads.)*
+- **Multiple indexes / data pools?** Name them in the question or run the hunt per index;
+  cross-source corroboration then spans them (auth + firewall + cloud → HIGH confidence).
+
+## Guardrails (safety)
+
+| Guardrail | What it protects |
+|---|---|
+| **Read-only search** via the MCP Server | the agent can't change, delete or break Splunk |
+| **Typed tools only** — no shell | no arbitrary commands / shell injection |
+| **Safe-SPL filter · rate limits · circuit breaker** (built into the MCP Server) | blocks risky SPL, caps request volume |
+| **Scoped `aud=mcp` token**, capability-gated | least privilege, not full admin |
+| **The 3-layer validator** | a hallucinated finding can't reach the report |
+| **Onboarding input checks** | rejects junk questions; verifies your API key live before any run |
+
+**Operational tips:** start on a **non-prod / read-replica** Splunk, **scope to one
+index** first, review **HIGH-confidence** findings before acting, and keep the agent on
+**Haiku** for cost. Every confirmed finding carries the **exact SPL**, so an analyst can
+re-run and verify it before any response.
+
 ## FAQ (junior level)
 
 **Do I need to move or copy my logs?** No. SOC Sentinel reads them where they already
