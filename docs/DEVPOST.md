@@ -61,7 +61,9 @@ It ships two ways to run:
   endpoint, network, AWS, Azure, GCP) mapped to MITRE ATT&CK. Every detector finds *behaviour
   or structure* — never a hardcoded IOC — so it survives a held-out environment (enforced by a
   "no answer keys" test).
-- **`agent.py`** — the Claude tool-use loop + the deterministic gate demo.
+- **`agent.py`** — the Claude tool-use loop (with **Anthropic prompt caching** of the
+  system prompt + tool defs + conversation prefix, and tool-result memoization — ~2–4× cheaper)
+  + the deterministic gate demo. Tracks and prints real token usage + $ per run.
 - **`report.py`** — one universal reporting engine (risk-ranked HTML/Markdown) for both paths.
 - **`seed_demo_index.py`** — a reproducible 6-sourcetype ATT&CK breach so judges can run the
   whole demo in two minutes without downloading a multi-GB dataset.

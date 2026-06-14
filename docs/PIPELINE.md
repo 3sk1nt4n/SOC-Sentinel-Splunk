@@ -79,3 +79,8 @@ The AI is invoked **only** in Steps 3 and 4 (investigate + draft). Steps 0, 1, 5
 — connection, token minting, validation, risk ranking, and the report — are 100%
 deterministic Python. That is what makes the output auditable: *the AI does the
 thinking; the code checks the facts.*
+
+**Cost:** Steps 3–4 use **Anthropic prompt caching** (the system prompt + tool
+definitions + the growing conversation prefix are read at 10%) and **tool-result
+memoization**, so a full investigation costs only pennies; the `--hunt` path (same 42
+detectors, no LLM) is **$0**. See [`COST.md`](COST.md).
