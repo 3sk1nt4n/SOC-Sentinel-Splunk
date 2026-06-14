@@ -73,33 +73,54 @@ def _validate_key(key):
         return None
 
 
-def handle_key():
-    """Resolve + LIVE-verify the key; re-prompt (hidden) if missing/rejected. Returns key or None."""
-    from api_key import resolve_key
-    key = src = None
+def _candidate_keys():
+    """Yield (source, key) from env -> .env -> API_KEY.txt (deduped), so a valid key in
+    any source is used even if an earlier (e.g. expired env-var) key shadows it."""
+    seen = set()
+    k = (os.environ.get("ANTHROPIC_API_KEY") or "").strip()
+    if k and k not in seen:
+        seen.add(k); yield ("env var", k)
     try:
-        key, src = resolve_key(interactive=False)
-    except RuntimeError:
+        from config import load_env
+        k = (load_env().get("ANTHROPIC_API_KEY") or "").strip()
+        if k and k not in seen:
+            seen.add(k); yield (".env", k)
+    except Exception:
         pass
-    if key:
-        v = _validate_key(key)
+    p = os.path.join(ROOT, "API_KEY.txt")
+    if os.path.isfile(p):
+        for ln in reversed(open(p, encoding="utf-8").read().splitlines()):
+            ln = ln.strip()
+            if ln.startswith("sk-") and ln not in seen:
+                seen.add(ln); yield ("API_KEY.txt", ln); break
+
+
+def handle_key():
+    """Try every key source, LIVE-verify each, use the first that works; only prompt if none do."""
+    for ksrc, k in _candidate_keys():
+        v = _validate_key(k)
         if v is True:
-            card("ok", "API key", f"loaded from {src} (…{key[-4:]}) — verified live")
-            return key
+            card("ok", "API key", f"loaded from {ksrc} (…{k[-4:]}) — verified live")
+            return k
         if v is None:
-            card("warn", "API key", f"loaded from {src} (…{key[-4:]}) — couldn't reach Anthropic to verify")
-            return key
-        card("warn", "API key", f"the {src} key was rejected (expired?) — let's enter a fresh one")
-    else:
-        card("info", "API key", "none found — paste one now, or skip for the free $0 hunt")
+            card("warn", "API key", f"loaded from {ksrc} (…{k[-4:]}) — couldn't reach Anthropic; using it")
+            return k
+        # rejected -> quietly try the next source
     if not TTY:
+        card("info", "API key", "none working — running the free hunt")
         return None
-    for _ in range(3):
-        k = getpass.getpass(f"   {MAG}🔑{R} paste your Anthropic API key (hidden, never shown/saved to git): ").strip()
+    card("info", "API key", "no working key found — paste one (Enter = skip to the free $0 hunt)")
+    print(f"   {DIM}easiest: put it in API_KEY.txt and re-run — then you're never asked.{R}")
+    for attempt in range(4):
+        k = getpass.getpass(f"   {MAG}🔑{R} paste your Anthropic key (hidden): ").strip().strip("'\"")
         if not k:
+            card("info", "skipped", "the free 42-detector hunt finds everything too")
             return None
-        if not _looks_real(k):
-            print(f"   {YEL}that doesn't look like an sk-ant-… key — try again (Enter to skip){R}")
+        if not (k.startswith("sk-") or len(k) >= 40):     # lenient — the live call is the real test
+            print(f"   {YEL}that doesn't look like a key.{R} {DIM}paste sk-ant-…, or Enter to skip.{R}")
+            if attempt >= 1:
+                print(f"   {DIM}tip: many terminals won't paste into a hidden prompt — instead run, in another shell:")
+                print(f"        printf 'sk-ant-YOURKEY\\n' > API_KEY.txt   then ./soc-sentinel.sh again.{R}")
             continue
         v = _validate_key(k)
         if v is True:
@@ -111,7 +132,11 @@ def handle_key():
                 except OSError:
                     pass
             return k
-        print(f"   {RED}that key was rejected by Anthropic — try again (Enter to skip){R}")
+        if v is None:
+            card("warn", "API key", "couldn't reach Anthropic — using it anyway")
+            return k
+        print(f"   {RED}Anthropic rejected that key (expired/typo?).{R} {DIM}try again or Enter to skip.{R}")
+    card("info", "continuing", "no key — running the free 42-detector hunt")
     return None
 
 
