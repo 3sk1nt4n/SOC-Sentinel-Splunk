@@ -9,6 +9,9 @@
 
 ![SOC Sentinel architecture](docs/architecture.png)
 
+> 🚀 **New here?** Start with **[Getting Started](docs/GETTING_STARTED.md)** — a plain-English
+> explanation of *what the Splunk MCP Server does* and how to connect SOC Sentinel to **your** Splunk.
+
 ---
 
 ## The problem
