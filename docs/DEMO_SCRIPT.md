@@ -46,7 +46,7 @@ exact SPL to reproduce each finding."
 python3 src/agent.py --hunt
 ```
 **On screen:** the hunt output grouped by domain — IDENTITY, ENDPOINT, NETWORK, AWS, AZURE, GCP.
-**Narration:** "Beyond the agent, a library of **31 behavioural detectors across the full kill
+**Narration:** "Beyond the agent, a library of **42 behavioural detectors across the full kill
 chain and all three clouds** — AWS, Azure, GCP. None of them hardcode an IP or a username; they
 detect *behaviour* — a failure burst, a periodic beacon, a service from a temp directory, an
 owner-role grant. So they work on any environment, not just our demo. Notice the same identity

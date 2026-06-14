@@ -57,7 +57,7 @@ It ships two ways to run:
 - **`splunk_mcp.py`** — a stdlib MCP client: mints an `aud=mcp` token via `/services/mcp_token`,
   speaks MCP Streamable-HTTP JSON-RPC (`initialize` / `tools/list` / `tools/call`).
 - **`finding_validator.py`** — the 3-layer trust pipeline.
-- **`detections.py`** — **31 universal behavioural detectors across 7 domains** (identity,
+- **`detections.py`** — **42 universal behavioural detectors across 7 domains** (identity,
   endpoint, network, AWS, Azure, GCP) mapped to MITRE ATT&CK. Every detector finds *behaviour
   or structure* — never a hardcoded IOC — so it survives a held-out environment (enforced by a
   "no answer keys" test).
@@ -108,7 +108,7 @@ Protocol · Claude (Anthropic) · MITRE ATT&CK · graphviz.
 - **Architecture diagram:** `docs/architecture.png`
 - **Sample incident report:** `reports/incident_report.html`
 - **Live agent transcript:** `artifacts/sample_investigation.txt`
-- **Demo video:** _(add link)_
+- **Demo video:** https://youtu.be/WVu349xuTIs
 
 ## Compliance checklist
 

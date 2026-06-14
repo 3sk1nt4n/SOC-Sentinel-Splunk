@@ -59,7 +59,7 @@ plain code. The AI investigates and drafts; it never marks its own homework.
 
    ════════════ alternate entry — deterministic hunt (no API key) ════════════
 
- --hunt ─▶ 31 UNIVERSAL BEHAVIOURAL DETECTORS · 7 domains   (detections.py)
+ --hunt ─▶ 42 UNIVERSAL BEHAVIOURAL DETECTORS · 7 domains   (detections.py)
             │      identity · endpoint · network · AWS · Azure · GCP
             │      finds BEHAVIOUR/structure, never a hardcoded IOC
             │      (no answer keys — enforced by tests/test_detections.py)

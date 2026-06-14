@@ -22,8 +22,8 @@ python, splunk, splunk-mcp-server, model-context-protocol, anthropic, claude, mi
 ## "Try it out" links
 ```
 GitHub: https://github.com/3sk1nt4n/SOC-Sentinel-Splunk
+Demo video: https://youtu.be/WVu349xuTIs
 ```
-*(also add your demo-video link once uploaded)*
 
 ---
 
