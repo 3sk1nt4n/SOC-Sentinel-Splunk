@@ -10,6 +10,7 @@ from __future__ import annotations
 import getpass
 import json
 import os
+import re
 import subprocess
 import sys
 import urllib.error
@@ -109,18 +110,22 @@ def handle_key():
     if not TTY:
         card("info", "API key", "none working — running the free hunt")
         return None
-    card("info", "API key", "no working key found — paste one (Enter = skip to the free $0 hunt)")
-    print(f"   {DIM}easiest: put it in API_KEY.txt and re-run — then you're never asked.{R}")
+    card("info", "API key", "no working key found (the AI run is optional — the hunt below is free)")
+    print(f"   {DIM}two easy options:  (a) put the key in API_KEY.txt and re-run, or  (b) paste below.{R}")
     for attempt in range(4):
-        k = getpass.getpass(f"   {MAG}🔑{R} paste your Anthropic key (hidden): ").strip().strip("'\"")
+        hidden = attempt == 0        # first try hidden; many terminals won't paste there, so switch to visible
+        label = "(hidden)" if hidden else "(visible — paste works here):"
+        try:
+            raw = (getpass.getpass if hidden else input)(f"   {MAG}🔑{R} Anthropic key {label} ")
+        except (EOFError, KeyboardInterrupt):
+            break
+        k = re.sub(r"\x1b\[2\d\d~", "", raw).strip().strip("'\"")   # strip bracketed-paste markers + quotes
         if not k:
             card("info", "skipped", "the free 42-detector hunt finds everything too")
             return None
-        if not (k.startswith("sk-") or len(k) >= 40):     # lenient — the live call is the real test
-            print(f"   {YEL}that doesn't look like a key.{R} {DIM}paste sk-ant-…, or Enter to skip.{R}")
-            if attempt >= 1:
-                print(f"   {DIM}tip: many terminals won't paste into a hidden prompt — instead run, in another shell:")
-                print(f"        printf 'sk-ant-YOURKEY\\n' > API_KEY.txt   then ./soc-sentinel.sh again.{R}")
+        if not (k.startswith("sk-") or len(k) >= 40):
+            print(f"   {YEL}that didn't come through.{R} {DIM}your terminal likely blocks paste into the hidden "
+                  f"prompt — switching to a visible paste; or put it in API_KEY.txt and re-run.{R}")
             continue
         v = _validate_key(k)
         if v is True:
