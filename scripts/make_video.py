@@ -255,6 +255,7 @@ def _col(line):
     elif st.startswith("[MEDIUM"): col = (225, 175, 95)
     elif st.startswith("[LOW") or "REJECTED" in st: col = (200, 150, 120)
     elif st.startswith("──") or st.startswith("==") or "UNIVERSAL" in st: col = (95, 175, 220)
+    elif st.startswith("✓"): col = (110, 205, 125)
     return col, _EMOJI.sub("", s)
 
 
@@ -294,6 +295,27 @@ def scene_steps():
         lines = [title, ""] + body
         for _ in range(66):
             out.append(term(lines, "soc-sentinel — setup"))
+    return out
+
+
+def scene_onboard(frames):
+    """The 'walk me through together' one-command onboarding, revealed step by step."""
+    lines = ["$ ./soc-sentinel.sh", "",
+             "── Checking your Splunk ──",
+             "  ✓ Splunk MCP Server   1.2.0 · 10 typed tools",
+             "  ✓ Evidence            index=soc_demo · 442 events", "",
+             "── Your AI key ──",
+             "  🔑 paste your Anthropic API key (hidden):  ••••••••••",
+             "  ✓ API key             verified live", "",
+             "── What would you like to do? ──",
+             "  1  Investigate with AI    (Claude finds the attack)",
+             "  2  Run the detector hunt   (42 detectors · free)",
+             "  3  Trust-gate demo         (free)",
+             "  ? choose [1/2/3]:  1"]
+    out = []
+    for fr in range(frames):
+        rev = max(1, int(round((fr + 1) / frames * len(lines))))
+        out.append(term(lines[:rev], "soc-sentinel — onboarding"))
     return out
 
 
@@ -385,8 +407,8 @@ def main():
     emit(scene_factcheck(D(185)))                                 # keep / block visual
     emit(scene_caption("How sure is it?", ["Seen in 3+ data sources  ->  HIGH  (act now).", "Seen in only one  ->  LOW  (worth a look)."], D(90), BLUE))
     # ── ACT 2 — a real walkthrough ──
-    emit(scene_caption("Let's see it — for real", ["Set it up, run it, and watch it work end to end."], D(62), BLUE))
-    emit(scene_steps())
+    emit(scene_caption("Start — one command walks you through", ["./soc-sentinel.sh  —  health checks · hidden key · then run."], D(62), BLUE))
+    emit(scene_onboard(D(155)))                                  # the 'walk me through together' onboarding
     emit(scene_keymask())                                         # glowy hidden API-key entry
     emit(scene_caption("Run it", ["Claude investigates Splunk live through the MCP Server."], D(55), BLUE))
     emit(scroll("artifacts/sample_investigation.txt", D(190)))    # find the intrusion (live)
